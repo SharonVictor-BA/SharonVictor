@@ -7,26 +7,58 @@ Original file is located at
     https://colab.research.google.com/drive/18AWPCMqJpvj-38SHmHtKDX6Mh4_ZQust
 """
 
-# app.py
-
-import pandas as pd
-import numpy as np
 import streamlit as st
 from datetime import date
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error, mean_absolute_percentage_error, explained_variance_score
+import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error, explained_variance_score
 
-# Load and process dataset
-df = pd.read_csv('CO2_Emission_Prediction_Dataset.csv')
+# ------------------------------
+# Page config & branding
+# ------------------------------
+st.set_page_config(
+    page_title="CO2 Emission Predictor",
+    page_icon="🌿",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS
+st.markdown("""
+<style>
+    .main {
+        background-color: #f5f7fa;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    h1, h2, h3 {
+        color: #204051;
+    }
+    .stTabs [data-baseweb="tab"] {
+        font-size: 18px;
+        font-weight: 600;
+        color: #0b2545;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Logo (optional)
+st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Green_leaf_icon.svg/1024px-Green_leaf_icon.svg.png", width=80)
+st.title("🌍 Carbon Emission Prediction Dashboard")
+st.caption("Built with 💚 using Streamlit + Random Forest")
+
+# ------------------------------
+# Load and preprocess data
+# ------------------------------
+df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
 
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
-# Define features and targets
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
 target_vars = [
@@ -35,101 +67,97 @@ target_vars = [
     'CO2 Emissions per km/mile (kg/km)'
 ]
 
-# Sidebar Inputs
-st.sidebar.header("Prediction Configuration")
-target_choice = st.sidebar.selectbox("Select Target Variable", target_vars)
-
-# Fixed dropdown values based on your image
+# Fixed dropdown values
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
 MATERIAL_TYPES = ['Aluminum', 'Plastic', 'Steel']
 SUPPLY_CHAIN_ACTIVITIES = ['Inbound', 'Internal', 'Outbound']
 
-# Manual input for each feature
-st.sidebar.subheader("Feature Selection")
-# Manual dropdowns (based on provided table)
+# ------------------------------
+# Sidebar – User Inputs
+# ------------------------------
+st.sidebar.header("Prediction Input")
+target_choice = st.sidebar.selectbox("Target Variable", target_vars)
 selected_facility = st.sidebar.selectbox("Facility Type", FACILITY_TYPES)
 selected_emission = st.sidebar.selectbox("Emission Source", EMISSION_SOURCES)
 selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
 selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
 selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
-selected_date = st.sidebar.date_input(
-    "Prediction Date (Future Only)",
-    value=date(2027, 1, 1),
-    min_value=date.today()
-)
+selected_date = st.sidebar.date_input("Prediction Date (Future Only)", value=date(2027, 1, 1), min_value=date.today())
 
-# Prepare training data
-X = df[categorical_features + numeric_features]
-X = pd.get_dummies(X)
+# ------------------------------
+# Train Model
+# ------------------------------
+X = pd.get_dummies(df[categorical_features + numeric_features])
 y = df[target_choice]
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# Train Random Forest model
 model = RandomForestRegressor(n_estimators=200, random_state=42)
 model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
 
-# Evaluation metrics
-st.subheader("Model Performance Evaluation")
-col1, col2, col3 = st.columns(3)
-col1.metric("R² Score", round(r2_score(y_test, y_pred), 4))
-col2.metric("RMSE", round(np.sqrt(mean_squared_error(y_test, y_pred)), 4))
-col3.metric("MAE", round(mean_absolute_error(y_test, y_pred), 4))
-st.write("Explained Variance Score:", round(explained_variance_score(y_test, y_pred), 4))
-st.write("MAPE (%):", round(mean_absolute_percentage_error(y_test, y_pred) * 100, 2))
+# ------------------------------
+# UI: Tabs for Navigation
+# ------------------------------
+tab1, tab2, tab3 = st.tabs(["🔍 Prediction", "📊 Model Evaluation", "🌟 Feature Importance"])
 
-# Feature Importance Plot
-st.subheader("Feature Importance")
-importances = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False)
-top_features = importances.head(10)
+# ---- Tab 1: Prediction ----
+with tab1:
+    st.subheader("Manual CO2 Emission Prediction")
 
-fig, ax = plt.subplots()
-sns.barplot(x=top_features.values, y=top_features.index, ax=ax)
-st.pyplot(fig)
+    # Encode input for prediction
+    input_data = {
+        'Facility Type_' + selected_facility: 1,
+        'Emission Source_' + selected_emission: 1,
+        'Transport Mode_' + selected_transport: 1,
+        'Material Type_' + selected_material: 1,
+        'Supply Chain Activity_' + selected_activity: 1,
+        'Year': selected_date.year,
+        'Month': selected_date.month
+    }
 
-# Prediction UI
-st.subheader("Manual Prediction")
-input_data = {
-    'Facility Type_' + selected_facility: 1,
-    'Emission Source_' + selected_emission: 1,
-    'Transport Mode_' + selected_transport: 1,
-    'Material Type_' + selected_material: 1,
-    'Supply Chain Activity_' + selected_activity: 1,
-    'Year': selected_date.year,
-    'Month': selected_date.month
-}
+    full_input = pd.DataFrame([input_data])
+    for col in X.columns:
+        if col not in full_input.columns:
+            full_input[col] = 0
+    full_input = full_input[X.columns]
 
-# Fill missing dummies with 0
-full_input = pd.DataFrame([input_data])
-for col in X.columns:
-    if col not in full_input.columns:
-        full_input[col] = 0
-full_input = full_input[X.columns]  # reorder columns
+    pred_value = model.predict(full_input)[0]
+    predictions = [tree.predict(full_input)[0] for tree in model.estimators_]
+    conf_int = np.percentile(predictions, [2.5, 97.5])
 
-# Prediction and Confidence Interval
-pred_value = model.predict(full_input)[0]
-predictions = [tree.predict(full_input)[0] for tree in model.estimators_]
-conf_int = np.percentile(predictions, [2.5, 97.5])
+    st.metric(label="Predicted CO2", value=f"{pred_value:,.2f}")
+    st.info(f"95% Prediction Interval: [{conf_int[0]:,.2f}, {conf_int[1]:,.2f}]")
 
-st.markdown(f"### Prediction for {target_choice}:")
-st.success(f"Predicted Value: **{pred_value:,.2f}**")
-st.info(f"95% Confidence Interval: [{conf_int[0]:,.2f} , {conf_int[1]:,.2f}]")
+    st.subheader("📈 Historical Comparison")
+    mask = (
+        (df['Facility Type'] == selected_facility) &
+        (df['Emission Source'] == selected_emission) &
+        (df['Transport Mode'] == selected_transport) &
+        (df['Material Type'] == selected_material) &
+        (df['Supply Chain Activity'] == selected_activity)
+    )
+    hist_values = df.loc[mask, target_choice]
+    if len(hist_values) > 0:
+        st.line_chart(hist_values.reset_index(drop=True))
+    else:
+        st.warning("No historical match for selected filters.")
 
-# Historical Context
-st.subheader("Historical Comparison (Same Selection)")
-mask = (df['Facility Type'] == selected_facility) & \
-       (df['Emission Source'] == selected_emission) & \
-       (df['Transport Mode'] == selected_transport) & \
-       (df['Material Type'] == selected_material) & \
-       (df['Supply Chain Activity'] == selected_activity)
+# ---- Tab 2: Evaluation ----
+with tab2:
+    st.subheader("📊 Model Performance Metrics")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("R² Score", round(r2_score(y_test, y_pred), 4))
+    col2.metric("RMSE", round(np.sqrt(mean_squared_error(y_test, y_pred)), 4))
+    col3.metric("MAE", round(mean_absolute_error(y_test, y_pred), 4))
+    st.write("Explained Variance:", round(explained_variance_score(y_test, y_pred), 4))
+    st.write("MAPE (%):", round(mean_absolute_percentage_error(y_test, y_pred) * 100, 2))
 
-hist_values = df.loc[mask, target_choice]
-
-if len(hist_values) > 0:
-    st.write(f"Past Emissions (same parameters): Mean = {hist_values.mean():,.2f}, Max = {hist_values.max():,.2f}")
-    st.line_chart(hist_values.reset_index(drop=True))
-else:
-    st.warning("No historical records found for the selected parameter combination.")
+# ---- Tab 3: Feature Importance ----
+with tab3:
+    st.subheader("🌟 Top 10 Important Features")
+    importances = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False).head(10)
+    fig, ax = plt.subplots()
+    sns.barplot(x=importances.values, y=importances.index, ax=ax)
+    st.pyplot(fig)
