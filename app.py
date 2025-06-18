@@ -62,6 +62,7 @@ This application enables organizations to forecast CO₂ emissions based on oper
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
+df['Month'] = df['Date'].dt.month 
 
 # ------------------------------
 # Constants
