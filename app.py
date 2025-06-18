@@ -25,10 +25,17 @@ st.set_page_config(page_title="CO2 Emission Forecasting App", page_icon="🌿", 
 def render_grade_banner(grade_letter, grade_label):
     grade_text = f"{grade_label} ({grade_letter})"
     st.markdown(f"""
-    <div style="background: linear-gradient(to right, #3a6073, #16222a); 
-                padding: 18px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="
+        background: linear-gradient(to right, #1f4037, #99f2c8);
+        padding: 18px 24px;
+        border-radius: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    ">
         <h3 style="color: white; margin: 0;">🌍 Overall Carbon Emission Grade</h3>
-        <h4 style="color: white; margin: 0; font-weight: 500;">{grade_text}</h4>
+        <h4 style="color: white; margin: 0; font-weight: 600;">{grade_text}</h4>
     </div>
     """, unsafe_allow_html=True)
 
