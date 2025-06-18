@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: ut-8 -*-
 import streamlit as st
 from datetime import date, timedelta
 import pandas as pd
