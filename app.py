@@ -12,15 +12,15 @@ import streamlit as st
 from datetime import date, timedelta
 import pandas as pd
 import numpy as np
+from sklearn.ensemble import RandomForestRegressor
 
+# Try Plotly, fallback to Matplotlib
 try:
     import plotly.graph_objects as go
     PLOTLY_AVAILABLE = True
 except ImportError:
     import matplotlib.pyplot as plt
     PLOTLY_AVAILABLE = False
-
-from sklearn.ensemble import RandomForestRegressor
 
 # ------------------------------
 # Page Configuration
@@ -62,7 +62,7 @@ This application enables organizations to forecast CO₂ emissions based on oper
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
-df['Month'] = df['Date'].dt.month 
+df['Month'] = df['Date'].dt.month
 
 # ------------------------------
 # Constants
@@ -73,18 +73,9 @@ target_vars = [
     'CO2 Emissions per km/mile (kg/km)'
 ]
 predicted_vars = {
-    'Total CO2 Emissions from Facility (kg)': (
-        'Actual CO2 Emissions from Facility (kg)',
-        'Predicted CO2 Emissions from Facility (kg)'
-    ),
-    'CO2 Emissions After Initiatives (kg)': (
-        'Actual CO2 Emissions After Initiatives (kg)',
-        'Predicted CO2 Emissions After Initiatives (kg)'
-    ),
-    'CO2 Emissions per km/mile (kg/km)': (
-        'Actual CO2 Emissions per km/mile (kg/km)',
-        'Predicted CO2 Emissions per km/mile (kg/km)'
-    )
+    'Total CO2 Emissions from Facility (kg)': ('AF', 'AG'),
+    'CO2 Emissions After Initiatives (kg)': ('AH', 'AI'),
+    'CO2 Emissions per km/mile (kg/km)': ('AJ', 'AK')
 }
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
@@ -195,9 +186,11 @@ with tab1:
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
 
+    # Date slider here and not outside
     min_date = df['Date'].min().date()
     max_date = df['Date'].max().date()
-    selected_dates = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
+    selected_dates = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date), format="%Y-%m-%d")
+
     chart_df = df[(df['Date'].dt.date >= selected_dates[0]) & (df['Date'].dt.date <= selected_dates[1])]
 
     for target in target_vars:
@@ -206,6 +199,7 @@ with tab2:
 
         if PLOTLY_AVAILABLE:
             fig = go.Figure()
+
             if actual_col in chart_df.columns:
                 fig.add_trace(go.Scatter(x=chart_df['Date'], y=chart_df[actual_col],
                                          mode='lines+markers', name='Actual', line=dict(color='blue')))
@@ -222,17 +216,17 @@ with tab2:
                 font=dict(color='white')
             )
             st.plotly_chart(fig, use_container_width=True)
+
         else:
-            import matplotlib.pyplot as plt
             fig, ax = plt.subplots(figsize=(10, 4))
             if actual_col in chart_df.columns:
                 ax.plot(chart_df['Date'], chart_df[actual_col], label='Actual', color='blue', marker='o')
             if pred_col in chart_df.columns:
                 ax.plot(chart_df['Date'], chart_df[pred_col], label='Predicted', color='red', linestyle='dotted', marker='x')
-
             ax.set_xlabel("Date")
             ax.set_ylabel(target)
             ax.set_title(f"{target}")
             ax.legend()
             ax.grid(True, linestyle='--', alpha=0.6)
             st.pyplot(fig)
+
