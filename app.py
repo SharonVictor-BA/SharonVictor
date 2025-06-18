@@ -21,11 +21,33 @@ from sklearn.ensemble import RandomForestRegressor
 st.set_page_config(page_title="CO2 Emission Forecasting App", page_icon="🌿", layout="wide")
 
 # ------------------------------
+# Banner for Overall Grade
+# ------------------------------
+def render_grade_banner(grade_letter, grade_label):
+    grade_text = f"{grade_label} ({grade_letter})"
+    st.markdown(f"""
+    <div style="background: linear-gradient(to right, #3a6073, #16222a); 
+                padding: 18px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="color: white; margin: 0;">🌍 Overall Carbon Emission Grade</h3>
+        <h4 style="color: white; margin: 0; font-weight: 500;">{grade_text}</h4>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ------------------------------
 # App Header
 # ------------------------------
 st.image("https://geographical.co.uk/wp-content/uploads/carbon-dioxide-emissions-title.jpg", width=80)
 st.title("🌍 CO2 Emission Forecasting App")
 st.caption("Built for Industrial Auditing Purposes")
+
+st.markdown("""
+This application enables organizations to forecast CO₂ emissions based on operational and supply chain inputs.
+
+**Business Value:**
+- Track CO₂ footprint across supply chain
+- Compare forecast vs historical emissions
+- Make data-driven ESG decisions
+""")
 
 # ------------------------------
 # Load Data
@@ -43,14 +65,6 @@ target_vars = [
     'CO2 Emissions After Initiatives (kg)',
     'CO2 Emissions per km/mile (kg/km)'
 ]
-
-# Mapping to predicted values
-predicted_cols = {
-    'Total CO2 Emissions from Facility (kg)': 'Predicted CO2 Emissions from Facility (kg)',
-    'CO2 Emissions After Initiatives (kg)': 'Predicted CO2 Emissions After Initiatives (kg)',
-    'CO2 Emissions per km/mile (kg/km)': 'Predicted CO2 Emissions per km/mile (kg/km)'
-}
-
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
@@ -69,12 +83,16 @@ selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
 selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
 selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
 today = date.today()
-selected_pred_date = st.sidebar.date_input("Date of Prediction", value=today + timedelta(days=30),
+selected_pred_date = st.sidebar.date_input("Prediction Date", value=today + timedelta(days=30),
                                            min_value=today, max_value=today + timedelta(days=365))
 
 # ------------------------------
-# Model Prediction Logic
+# Prediction & Grading Logic
 # ------------------------------
+grades = []
+scores = []
+grade_map = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1}
+grade_labels = {'A': 'Good', 'B': 'Good', 'C': 'Moderate', 'D': 'Bad', 'E': 'Bad'}
 predictions_dict = {}
 min_max_dict = {}
 
@@ -103,14 +121,47 @@ for target in target_vars:
 
     pred = model.predict(input_df)[0]
     predictions_dict[target] = pred
-    min_max_dict[target] = (df[target].min(), df[target].max())
+    min_val, max_val = df[target].min(), df[target].max()
+    min_max_dict[target] = (min_val, max_val)
+
+    percentile = (pred - min_val) / (max_val - min_val) if max_val > min_val else 0
+    if percentile <= 0.25:
+        grade = 'A'
+    elif percentile <= 0.50:
+        grade = 'B'
+    elif percentile <= 0.75:
+        grade = 'C'
+    elif percentile <= 1.00:
+        grade = 'D'
+    else:
+        grade = 'E'
+
+    grades.append(grade)
+    scores.append(grade_map[grade])
 
 # ------------------------------
-# Tabs
+# Overall Grade Calculation
+# ------------------------------
+avg_score = np.mean(scores)
+if avg_score >= 4.5:
+    overall = 'A'
+elif avg_score >= 3.5:
+    overall = 'B'
+elif avg_score >= 2.5:
+    overall = 'C'
+elif avg_score >= 1.5:
+    overall = 'D'
+else:
+    overall = 'E'
+
+render_grade_banner(overall, grade_labels[overall])
+
+# ------------------------------
+# Tabs: Forecast & History
 # ------------------------------
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
-# --- Tab 1: Forecast ---
+# --- Tab 1 ---
 with tab1:
     for target in target_vars:
         st.markdown(f"### {target}")
@@ -119,10 +170,9 @@ with tab1:
         st.warning(f"Max: {min_max_dict[target][1]:,.2f}")
         st.markdown("---")
 
-# --- Tab 2: Historical with Prediction Line ---
+# --- Tab 2 ---
 with tab2:
-    st.subheader("📊 Historical vs Forecasted CO₂ Emissions")
-
+    st.subheader("Historical CO₂ Emissions Comparison")
     filtered_df = df[
         (df['Facility Type'] == selected_facility) &
         (df['Emission Source'] == selected_emission) &
@@ -133,26 +183,16 @@ with tab2:
 
     if not filtered_df.empty:
         for target in target_vars:
-            st.markdown(f"#### {target}")
+            st.markdown(f"**{target}**")
             fig, ax = plt.subplots(figsize=(10, 4))
-
-            # Historical line
-            ax.plot(filtered_df['Date'], filtered_df[target], label="Actual", color="blue")
-
-            # Forecasted line (dotted)
-            pred_col = predicted_cols[target]
-            if pred_col in filtered_df.columns:
-                ax.plot(filtered_df['Date'], filtered_df[pred_col], label="Predicted", color="red", linestyle='dotted')
-
-            # Highlight selected prediction date
-            ax.axvline(pd.to_datetime(selected_pred_date), color='orange', linestyle='--', label="Selected Date")
-
+            ax.plot(filtered_df['Date'], filtered_df[target], label='Historical')
+            ax.axvline(pd.to_datetime(selected_pred_date), color='orange', linestyle='--', label='Prediction Date')
+            ax.set_facecolor("none")
+            fig.patch.set_alpha(0.0)
             ax.set_xlabel("Date")
             ax.set_ylabel(target)
             ax.grid(True, linestyle=':', alpha=0.6)
-            ax.set_facecolor("none")
-            fig.patch.set_alpha(0.0)
             ax.legend()
             st.pyplot(fig)
     else:
-        st.warning("No historical data found for selected filters.")
+        st.warning("No matching historical data found for selected inputs.")
