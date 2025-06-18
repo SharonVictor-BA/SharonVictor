@@ -176,11 +176,11 @@ with tab1:
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
 
-    min_date = df['Date'].min()
-    max_date = df['Date'].max()
+    min_date = df['Date'].min().date()
+    max_date = df['Date'].max().date()
     selected_range = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
 
-    df_filtered = df[(df['Date'] >= selected_range[0]) & (df['Date'] <= selected_range[1])]
+    df_filtered = df[(df['Date'].dt.date >= selected_range[0]) & (df['Date'].dt.date <= selected_range[1])]
 
     for target in target_vars:
         st.markdown(f"**{target}**")
