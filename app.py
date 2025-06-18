@@ -37,7 +37,7 @@ This application enables organizations to forecast CO₂ emissions based on oper
 - Make data-driven ESG decisions
 """)
 
-# --- Load Dataset ---
+# --- Load Data ---
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
@@ -52,14 +52,13 @@ target_vars = [
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
 
-# --- Dropdown Options ---
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
 MATERIAL_TYPES = ['Aluminum', 'Plastic', 'Steel']
 SUPPLY_CHAIN_ACTIVITIES = ['Inbound', 'Internal', 'Outbound']
 
-# --- Sidebar Filters ---
+# --- Sidebar Inputs ---
 st.sidebar.header("📥 Forecast Parameters")
 selected_facility = st.sidebar.selectbox("Facility Type", FACILITY_TYPES)
 selected_emission = st.sidebar.selectbox("Emission Source", EMISSION_SOURCES)
@@ -67,10 +66,17 @@ selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
 selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
 selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
 today = date.today()
-selected_pred_date = st.sidebar.date_input("Prediction Date (within 1 year)", value=today + timedelta(days=30), min_value=today, max_value=today + timedelta(days=365))
+selected_pred_date = st.sidebar.date_input(
+    "Prediction Date (within 1 year)",
+    value=today + timedelta(days=30),
+    min_value=today,
+    max_value=today + timedelta(days=365)
+)
 
-# --- Grade Calculation ---
-grade_score_map = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1}
+# --- Initialize structures ---
+grades = []
+scores = []
+grade_map = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1}
 grade_color_map = {
     'A': '🟩 Excellent (A)',
     'B': '🟦 Good (B)',
@@ -78,12 +84,10 @@ grade_color_map = {
     'D': '🟥 Poor (D)',
     'E': '🟥 Critical (E)'
 }
-
-grades = []
 predictions_dict = {}
 min_max_dict = {}
 
-# --- Prediction & Grading ---
+# --- Train Models and Predict ---
 X = pd.get_dummies(df[categorical_features + numeric_features])
 for target in target_vars:
     y = df[target]
@@ -111,26 +115,24 @@ for target in target_vars:
     max_val = df[target].max()
     min_max_dict[target] = (min_val, max_val)
 
-    # Grade logic
-    q1 = np.percentile(df[target], 25)
-    q2 = np.percentile(df[target], 50)
-    q3 = np.percentile(df[target], 75)
-
-    if pred <= q1:
+    # Grade based on normalized range
+    percentile = (pred - min_val) / (max_val - min_val) if max_val > min_val else 0
+    if percentile <= 0.25:
         grade = 'A'
-    elif pred <= q2:
+    elif percentile <= 0.50:
         grade = 'B'
-    elif pred <= q3:
+    elif percentile <= 0.75:
         grade = 'C'
-    elif pred <= max_val:
+    elif percentile <= 1.00:
         grade = 'D'
     else:
         grade = 'E'
 
     grades.append(grade)
+    scores.append(grade_map[grade])
 
-# --- Overall Grade ---
-avg_score = np.mean([grade_score_map[g] for g in grades])
+# --- Overall Score ---
+avg_score = np.mean(scores)
 if avg_score >= 4.5:
     overall = 'A'
 elif avg_score >= 3.5:
@@ -142,14 +144,17 @@ elif avg_score >= 1.5:
 else:
     overall = 'E'
 
-# --- Display Grade Above Tabs ---
-st.markdown(f"## ✅ **Overall Environmental Emission Grade:** {grade_color_map[overall]}")
-st.caption("This grade is based on percentile-normalized CO₂ predictions across 3 dimensions.")
+# --- Grade Display as KPI Card ---
+st.markdown(f"""
+<div style="background-color:#007BFF;padding:15px;border-radius:10px;">
+    <h3 style="color:white;">✅ Overall Environmental Emission Grade: {grade_color_map[overall]}</h3>
+</div>
+""", unsafe_allow_html=True)
 
 # --- Tabs ---
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
-# --- Tab 1: Forecast KPIs Vertical ---
+# --- Forecast & KPIs Tab ---
 with tab1:
     for target in target_vars:
         st.markdown(f"### {target}")
@@ -158,7 +163,7 @@ with tab1:
         st.warning(f"Max: {min_max_dict[target][1]:,.2f}")
         st.markdown("---")
 
-# --- Tab 2: Historical Trend Charts ---
+# --- Historical Comparison Tab ---
 with tab2:
     st.subheader("Historical CO2 Emissions Comparison")
     filtered_df = df[
