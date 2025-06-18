@@ -178,7 +178,7 @@ with tab1:
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
 
-    # Date Range Filter for Charts Only in Tab 2
+    # Date Range Filter (applies only to Tab 2)
     min_date = df['Date'].min().date()
     max_date = df['Date'].max().date()
     selected_dates = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
@@ -188,27 +188,36 @@ with tab2:
         st.markdown(f"**{target}**")
         actual_col, pred_col = predicted_vars[target]
 
-        fig = go.Figure()
+        if PLOTLY_AVAILABLE:
+            fig = go.Figure()
 
-        if actual_col in chart_df.columns:
-            fig.add_trace(go.Scatter(x=chart_df['Date'], y=chart_df[actual_col],
-                                     mode='lines+markers',
-                                     name='Actual',
-                                     line=dict(color='blue')))
+            if actual_col in chart_df.columns:
+                fig.add_trace(go.Scatter(x=chart_df['Date'], y=chart_df[actual_col],
+                                         mode='lines+markers', name='Actual', line=dict(color='blue')))
+            if pred_col in chart_df.columns:
+                fig.add_trace(go.Scatter(x=chart_df['Date'], y=chart_df[pred_col],
+                                         mode='lines+markers', name='Predicted', line=dict(color='red', dash='dot')))
 
-        if pred_col in chart_df.columns:
-            fig.add_trace(go.Scatter(x=chart_df['Date'], y=chart_df[pred_col],
-                                     mode='lines+markers',
-                                     name='Predicted',
-                                     line=dict(color='red', dash='dot')))
+            fig.update_layout(
+                xaxis_title='Date',
+                yaxis_title=target,
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                legend=dict(font=dict(color='white')),
+                font=dict(color='white')
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        fig.update_layout(
-            xaxis_title='Date',
-            yaxis_title=target,
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            legend=dict(font=dict(color='white')),
-            font=dict(color='white')
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
+        else:
+            fig, ax = plt.subplots(figsize=(10, 4))
+            if actual_col in chart_df.columns:
+                ax.plot(chart_df['Date'], chart_df[actual_col], label='Actual', color='blue', marker='o')
+            if pred_col in chart_df.columns:
+                ax.plot(chart_df['Date'], chart_df[pred_col], label='Predicted', color='red', linestyle='dotted', marker='x')
+            
+            ax.set_xlabel("Date")
+            ax.set_ylabel(target)
+            ax.set_title(f"{target}")
+            ax.legend()
+            ax.grid(True, linestyle='--', alpha=0.6)
+            st.pyplot(fig)
