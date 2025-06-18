@@ -7,41 +7,63 @@ Original file is located at
     https://colab.research.google.com/drive/18AWPCMqJpvj-38SHmHtKDX6Mh4_ZQust
 """
 
-# Add to your existing imports
-from datetime import datetime
+import streamlit as st
+from datetime import date
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
 
-# Set page config
+# ------------------------------
+# Page config & branding
+# ------------------------------
 st.set_page_config(
-    page_title="CO2 Emission Forecasting App",
-    page_icon="🌍",
-    layout="wide"
+    page_title="CO2 Emission Predictor",
+    page_icon="🌿",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # ------------------------------
-# App Header & Business Value
+# Custom Styles and Title
 # ------------------------------
 st.markdown("""
-## 🌿 CO2 Emission Forecasting App
+<style>
+    .main {
+        background-color: #f5f7fa;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    h1, h2, h3 {
+        color: #204051;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-This application enables organizations to forecast carbon dioxide (CO₂) emissions based on supply chain and operational variables.  
+st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Green_leaf_icon.svg/1024px-Green_leaf_icon.svg.png", width=80)
+st.title("🌍 Carbon Emission Forecasting App")
+st.caption("Built with 💚 using Streamlit + Random Forest")
+
+st.markdown("""
+This application enables organizations to forecast CO₂ emissions based on supply chain and operational parameters.
+
 **Benefits & Business Value:**
-- ✅ Make data-driven sustainability decisions  
-- ✅ Identify emission hotspots across transport, materials, and facility types  
-- ✅ Support compliance with ESG and regulatory goals  
-- ✅ Visualize historical and predicted CO₂ trends to track progress over time  
+- ✅ Identify emission hotspots across operations
+- ✅ Make data-driven sustainability decisions
+- ✅ Monitor progress toward ESG goals
+- ✅ Visualize emission trends over time
 """)
-
-st.markdown("---")
 
 # ------------------------------
 # Load and preprocess data
 # ------------------------------
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
+
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
-# Categorical and numeric features
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
 target_vars = [
@@ -50,7 +72,7 @@ target_vars = [
     'CO2 Emissions per km/mile (kg/km)'
 ]
 
-# Fixed dropdown values
+# Dropdown values
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
@@ -68,26 +90,23 @@ selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
 selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
 selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
 
-# Allow selection from 01-Jan-1997 to 31-Dec-2050
+# Full date range from 1997 to 2050
 selected_date = st.sidebar.date_input("Prediction Date", value=date(2027, 1, 1), min_value=date(1997, 1, 1), max_value=date(2050, 12, 31))
 
 # ------------------------------
-# Model Training
+# Train Random Forest Model
 # ------------------------------
 X = pd.get_dummies(df[categorical_features + numeric_features])
 y = df[target_choice]
-
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
 model = RandomForestRegressor(n_estimators=200, random_state=42)
 model.fit(X_train, y_train)
 
 # ------------------------------
 # Prediction
 # ------------------------------
-st.subheader("🔮 Predicted Emission Output")
+st.subheader("🔮 CO2 Emission Forecast")
 
 input_data = {
     'Facility Type_' + selected_facility: 1,
@@ -109,13 +128,13 @@ pred_value = model.predict(full_input)[0]
 predictions = [tree.predict(full_input)[0] for tree in model.estimators_]
 conf_int = np.percentile(predictions, [2.5, 97.5])
 
-st.success(f"Predicted {target_choice}: **{pred_value:,.2f}**")
-st.info(f"95% Prediction Interval: **[{conf_int[0]:,.2f}, {conf_int[1]:,.2f}]**")
+st.metric(label=f"Predicted {target_choice}", value=f"{pred_value:,.2f}")
+st.info(f"95% Prediction Interval: [{conf_int[0]:,.2f}, {conf_int[1]:,.2f}]")
 
 # ------------------------------
-# Visual 1: Historical Trends (1997–2024)
+# 📉 Historical Chart (1997–2024)
 # ------------------------------
-st.subheader("📉 Historical CO2 Emission Trend (1997–2024)")
+st.subheader("📉 Historical Emissions (1997–2024)")
 
 historical_df = df[
     (df['Facility Type'] == selected_facility) &
@@ -127,14 +146,20 @@ historical_df = df[
 ][['Date', target_choice]].dropna().sort_values('Date')
 
 if not historical_df.empty:
-    st.line_chart(historical_df.rename(columns={target_choice: "CO2 Emissions"}).set_index('Date'))
+    fig1, ax1 = plt.subplots(figsize=(10, 4))
+    ax1.plot(historical_df['Date'], historical_df[target_choice], marker='o', linestyle='-')
+    ax1.set_xlabel("Date")
+    ax1.set_ylabel(target_choice)
+    ax1.set_title("Historical CO2 Emissions")
+    ax1.grid(True)
+    st.pyplot(fig1)
 else:
     st.warning("No historical data found for selected filters.")
 
 # ------------------------------
-# Visual 2: Future Forecast Point
+# 📈 Future Prediction (Single Point)
 # ------------------------------
-st.subheader("📈 Future Emission Forecast")
+st.subheader("📈 Forecasted Emission (Selected Future Date)")
 
 future_df = pd.DataFrame({
     'Date': [selected_date],
