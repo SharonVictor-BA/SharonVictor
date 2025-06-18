@@ -172,44 +172,54 @@ with tab1:
         st.warning(f"Max: {min_max_dict[target][1]:,.2f}")
         st.markdown("---")
 
-# --- Tab 2 ---
-# --- Tab 2: Historical with Prediction Dot ---
+# --- Tab 2: Visualization Only ---
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
 
-    filtered_df = df[
-        (df['Facility Type'] == selected_facility) &
-        (df['Emission Source'] == selected_emission) &
-        (df['Transport Mode'] == selected_transport) &
-        (df['Material Type'] == selected_material) &
-        (df['Supply Chain Activity'] == selected_activity)
-    ].sort_values('Date')
+    min_date = df['Date'].min().date()
+    max_date = df['Date'].max().date()
+    selected_range = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
 
-    if not filtered_df.empty:
-        for target in target_vars:
-            st.markdown(f"#### {target}")
-            fig, ax = plt.subplots(figsize=(10, 4))
+    # Filter based on selected date range
+    df_filtered = df[(df['Date'].dt.date >= selected_range[0]) & (df['Date'].dt.date <= selected_range[1])]
 
-            # Historical trend
-            ax.plot(filtered_df['Date'], filtered_df[target], label="Historical", color="tab:blue")
+    # Map actual/predicted columns to target names
+    predicted_vars = {
+        'Total CO2 Emissions from Facility (kg)': (
+            'Actual CO2 Emissions from Facility (kg)',
+            'Predicted CO2 Emissions from Facility (kg)'
+        ),
+        'CO2 Emissions After Initiatives (kg)': (
+            'Actual CO2 Emissions After Initiatives (kg)',
+            'Predicted CO2 Emissions After Initiatives (kg)'
+        ),
+        'CO2 Emissions per km/mile (kg/km)': (
+            'Actual CO2 Emissions per km/mile (kg/km)',
+            'Predicted CO2 Emissions per km/mile (kg/km)'
+        )
+    }
 
-            # Prediction vertical line
-            ax.axvline(selected_pred_date, color='orange', linestyle='--', label="Prediction Date")
+    for target in target_vars:
+        st.markdown(f"**{target}**")
+        actual_col, pred_col = predicted_vars[target]
 
-            # Prediction point
-            pred_y = predictions_dict[target]
-            ax.plot(selected_pred_date, pred_y, 'ro', label="Predicted Point")
-            ax.annotate(f"{pred_y:,.2f}",
-                        (selected_pred_date, pred_y),
-                        textcoords="offset points", xytext=(0, 10), ha='center', color='red', fontsize=9)
+        fig = go.Figure()
 
-            # Style
-            ax.set_xlabel("Date")
-            ax.set_ylabel(target)
-            ax.set_facecolor("none")
-            fig.patch.set_alpha(0.0)
-            ax.grid(True, linestyle=':', alpha=0.6)
-            ax.legend()
-            st.pyplot(fig)
-    else:
-        st.warning("No historical data found for selected filters.")
+        if actual_col in df_filtered.columns:
+            fig.add_trace(go.Scatter(x=df_filtered['Date'], y=df_filtered[actual_col],
+                                     mode='lines+markers', name='Actual', line=dict(color='blue')))
+        if pred_col in df_filtered.columns:
+            fig.add_trace(go.Scatter(x=df_filtered['Date'], y=df_filtered[pred_col],
+                                     mode='lines+markers', name='Predicted', line=dict(color='red', dash='dot')))
+
+        fig.update_layout(
+            xaxis_title='Date',
+            yaxis_title=target,
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            legend=dict(font=dict(color='white')),
+            font=dict(color='white'),
+            hovermode='x unified'
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
