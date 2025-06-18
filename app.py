@@ -8,11 +8,12 @@ Original file is located at
 """
 
 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import streamlit as st
 from datetime import date, timedelta
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 
 # ------------------------------
@@ -55,7 +56,6 @@ This application enables organizations to forecast CO₂ emissions based on oper
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
-df['Month'] = df['Date'].dt.month
 
 # ------------------------------
 # Constants
@@ -66,29 +66,22 @@ target_vars = [
     'CO2 Emissions per km/mile (kg/km)'
 ]
 predicted_vars = {
-    'Total CO2 Emissions from Facility (kg)': ('Actual CO2 Emissions from Facility (kg)', 'Predicted CO2 Emissions from Facility (kg)'),
-    'CO2 Emissions After Initiatives (kg)': ('Actual CO2 Emissions After Initiatives (kg)', 'Predicted CO2 Emissions After Initiatives (kg)'),
-    'CO2 Emissions per km/mile (kg/km)': ('Actual CO2 Emissions per km/mile (kg/km)', 'Predicted CO2 Emissions per km/mile (kg/km)')
-}
-# Updated to use specific columns: AF, AG, AH, AI, AJ, AK
-column_map = {
     'Total CO2 Emissions from Facility (kg)': ('AF', 'AG'),
     'CO2 Emissions After Initiatives (kg)': ('AH', 'AI'),
     'CO2 Emissions per km/mile (kg/km)': ('AJ', 'AK')
 }
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
-
-# ------------------------------
-# Sidebar Inputs for Prediction Only
-# ------------------------------
-st.sidebar.header("📥 Forecast Parameters")
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
 MATERIAL_TYPES = ['Aluminum', 'Plastic', 'Steel']
 SUPPLY_CHAIN_ACTIVITIES = ['Inbound', 'Internal', 'Outbound']
 
+# ------------------------------
+# Sidebar Inputs
+# ------------------------------
+st.sidebar.header("📥 Forecast Parameters")
 selected_facility = st.sidebar.selectbox("Facility Type", FACILITY_TYPES)
 selected_emission = st.sidebar.selectbox("Emission Source", EMISSION_SOURCES)
 selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
@@ -169,15 +162,6 @@ else:
 render_grade_banner(overall, grade_labels[overall])
 
 # ------------------------------
-# Date Range Slider
-# ------------------------------
-st.subheader("📅 Select Date Range")
-min_date = df['Date'].min().date()
-max_date = df['Date'].max().date()
-selected_dates = st.slider("Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
-filtered_df_all = df[(df['Date'].dt.date >= selected_dates[0]) & (df['Date'].dt.date <= selected_dates[1])]
-
-# ------------------------------
 # Tabs: Forecast & History
 # ------------------------------
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
@@ -194,22 +178,38 @@ with tab1:
 # --- Tab 2 ---
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
+
+    # Date Range Filter for Charts Only in Tab 2
+    min_date = df['Date'].min().date()
+    max_date = df['Date'].max().date()
+    selected_dates = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
+    chart_df = df[(df['Date'].dt.date >= selected_dates[0]) & (df['Date'].dt.date <= selected_dates[1])]
+
     for target in target_vars:
         st.markdown(f"**{target}**")
-        actual_col, pred_col = column_map[target]  # Use actual column letters
-        fig, ax = plt.subplots(figsize=(10, 4))
+        actual_col, pred_col = predicted_vars[target]
 
-        if actual_col in df.columns:
-            ax.plot(df['Date'], df[actual_col], label='Actual', color="tab:blue")
-        if pred_col in df.columns:
-            ax.plot(df['Date'], df[pred_col], label='Predicted', linestyle='dotted', color="red")
+        fig = go.Figure()
 
-        ax.set_facecolor("none")
-        fig.patch.set_alpha(0.0)
-        ax.set_xlabel("Date")
-        ax.set_ylabel(target)
-        ax.grid(True, linestyle=':', alpha=0.6)
-        legend = ax.legend()
-        for text in legend.get_texts():
-            text.set_color("white")
-        st.pyplot(fig)
+        if actual_col in chart_df.columns:
+            fig.add_trace(go.Scatter(x=chart_df['Date'], y=chart_df[actual_col],
+                                     mode='lines+markers',
+                                     name='Actual',
+                                     line=dict(color='blue')))
+
+        if pred_col in chart_df.columns:
+            fig.add_trace(go.Scatter(x=chart_df['Date'], y=chart_df[pred_col],
+                                     mode='lines+markers',
+                                     name='Predicted',
+                                     line=dict(color='red', dash='dot')))
+
+        fig.update_layout(
+            xaxis_title='Date',
+            yaxis_title=target,
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            legend=dict(font=dict(color='white')),
+            font=dict(color='white')
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
