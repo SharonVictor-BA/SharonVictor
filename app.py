@@ -7,6 +7,8 @@ Original file is located at
     https://colab.research.google.com/drive/18AWPCMqJpvj-38SHmHtKDX6Mh4_ZQust
 """
 
+pip install plotly
+
 # -*- coding: utf-8 -*-
 import streamlit as st
 from datetime import date, timedelta
