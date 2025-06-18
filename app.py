@@ -44,7 +44,7 @@ df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
-# Define constants
+# Variable Definitions
 target_vars = [
     'Total CO2 Emissions from Facility (kg)',
     'CO2 Emissions After Initiatives (kg)',
@@ -53,6 +53,7 @@ target_vars = [
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
 
+# Dropdown Options
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
@@ -74,23 +75,17 @@ max_date = today + timedelta(days=365)
 selected_pred_date = st.sidebar.date_input("Prediction Date (within 1 year)", value=today + timedelta(days=30), min_value=today, max_value=max_date)
 
 # ------------------------------
-# Create tabs for each target variable
+# Tabs
 # ------------------------------
-tabs = st.tabs([f"📊 {target}" for target in target_vars])
+tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
-for i, target in enumerate(target_vars):
-    with tabs[i]:
-        st.subheader(f"{target} – Forecast vs Historical")
+# ---- Forecast Tab ----
+with tab1:
+    st.subheader("Predicted CO2 KPIs")
 
-        # Filter historical data
-        filtered_df = df[
-            (df['Facility Type'] == selected_facility) &
-            (df['Emission Source'] == selected_emission) &
-            (df['Transport Mode'] == selected_transport) &
-            (df['Material Type'] == selected_material) &
-            (df['Supply Chain Activity'] == selected_activity)
-        ][['Date', target]].dropna().sort_values('Date')
+    col1, col2, col3 = st.columns(3)
 
+    for i, target in enumerate(target_vars):
         # Model training
         X = pd.get_dummies(df[categorical_features + numeric_features])
         y = df[target]
@@ -98,7 +93,7 @@ for i, target in enumerate(target_vars):
         model = RandomForestRegressor(n_estimators=200, random_state=42)
         model.fit(X_train, y_train)
 
-        # Prepare input for prediction
+        # Input for prediction
         input_data = {
             'Facility Type_' + selected_facility: 1,
             'Emission Source_' + selected_emission: 1,
@@ -114,31 +109,54 @@ for i, target in enumerate(target_vars):
                 full_input[col] = 0
         full_input = full_input[X.columns]
 
-        # Prediction + confidence interval
+        # Prediction
         pred = model.predict(full_input)[0]
         predictions = [tree.predict(full_input)[0] for tree in model.estimators_]
         conf_int = np.percentile(predictions, [2.5, 97.5])
 
-        # Historical min/max
-        hist_min = filtered_df[target].min()
-        hist_max = filtered_df[target].max()
+        min_val = df[target].min()
+        max_val = df[target].max()
 
-        # Display results
-        st.metric(label="Predicted Value", value=f"{pred:,.2f}")
-        st.info(f"95% Confidence Interval: [{conf_int[0]:,.2f}, {conf_int[1]:,.2f}]")
-        st.success(f"📉 Historical Min: {hist_min:,.2f}    📈 Historical Max: {hist_max:,.2f}")
+        # KPI Cards
+        if i == 0:
+            with col1:
+                st.metric(label=f"{target}", value=f"{pred:,.2f}")
+                st.success(f"Min: {min_val:,.2f}")
+                st.warning(f"Max: {max_val:,.2f}")
+        elif i == 1:
+            with col2:
+                st.metric(label=f"{target}", value=f"{pred:,.2f}")
+                st.success(f"Min: {min_val:,.2f}")
+                st.warning(f"Max: {max_val:,.2f}")
+        else:
+            with col3:
+                st.metric(label=f"{target}", value=f"{pred:,.2f}")
+                st.success(f"Min: {min_val:,.2f}")
+                st.warning(f"Max: {max_val:,.2f}")
 
-        # Plot comparison
-        if not filtered_df.empty:
+# ---- Historical Comparison Tab ----
+with tab2:
+    st.subheader("Historical CO2 Emissions Comparison")
+    filtered_df = df[
+        (df['Facility Type'] == selected_facility) &
+        (df['Emission Source'] == selected_emission) &
+        (df['Transport Mode'] == selected_transport) &
+        (df['Material Type'] == selected_material) &
+        (df['Supply Chain Activity'] == selected_activity)
+    ].sort_values('Date')
+
+    if not filtered_df.empty:
+        for target in target_vars:
+            st.markdown(f"**{target}**")
             fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(filtered_df['Date'], filtered_df[target], label='Historical Trend', linestyle='--')
-            ax.axvline(pd.to_datetime(selected_pred_date), color='orange', linestyle=':', label='Prediction Date')
-            ax.scatter(pd.to_datetime(selected_pred_date), pred, color='red', zorder=5, label='Predicted Value')
+            ax.plot(filtered_df['Date'], filtered_df[target], linestyle='-', linewidth=2, label='Historical')
+            ax.set_facecolor("none")
+            fig.patch.set_alpha(0.0)
+            ax.axvline(pd.to_datetime(selected_pred_date), color='orange', linestyle='--', label='Prediction Date')
             ax.set_xlabel("Date")
             ax.set_ylabel(target)
-            ax.set_title(f"{target} – Real-Time Forecast vs Historical")
+            ax.grid(True, linestyle=':', alpha=0.6)
             ax.legend()
-            ax.grid(True)
             st.pyplot(fig)
-        else:
-            st.warning("No historical data available for the selected filter combination.")
+    else:
+        st.warning("No matching historical data found for selected inputs.")
