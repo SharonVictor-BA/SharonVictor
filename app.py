@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestRegressor
 # ------------------------------
 # Page Configuration
 # ------------------------------
-st.set_page_config(page_title="CO2 Emission Forecasting App", page_icon="🌿", layout="wide")
+st.set_page_config(page_title="Smart-Carbon: Predictive Analytics for Emission Forecasting", page_icon="🌿", layout="wide")
 
 # ------------------------------
 # Banner for Overall Grade
@@ -28,7 +28,7 @@ def render_grade_banner(grade_letter, grade_label):
 # App Header
 # ------------------------------
 st.image("https://geographical.co.uk/wp-content/uploads/carbon-dioxide-emissions-title.jpg", width=80)
-st.title("🌍 CO2 Emission Forecasting App")
+st.title("🌍 Smart-Carbon: Predictive Analytics for Emission Forecasting")
 st.caption("Built for Industrial Auditing Purposes")
 
 st.markdown("""
