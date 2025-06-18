@@ -1,9 +1,9 @@
-# -*- coding: ut-8 -*-
+# -*- coding: utf-8 -*-
 import streamlit as st
 from datetime import date, timedelta
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 
 # ------------------------------
@@ -25,6 +25,22 @@ def render_grade_banner(grade_letter, grade_label):
     """, unsafe_allow_html=True)
 
 # ------------------------------
+# App Header
+# ------------------------------
+st.image("https://geographical.co.uk/wp-content/uploads/carbon-dioxide-emissions-title.jpg", width=80)
+st.title("🌍 CO2 Emission Forecasting App")
+st.caption("Built for Industrial Auditing Purposes")
+
+st.markdown("""
+This application enables organizations to forecast CO₂ emissions based on operational and supply chain inputs.
+
+**Business Value:**
+- Track CO₂ footprint across supply chain
+- Compare forecast vs historical emissions
+- Make data-driven ESG decisions
+""")
+
+# ------------------------------
 # Load Data
 # ------------------------------
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
@@ -39,13 +55,11 @@ target_vars = [
     'CO2 Emissions After Initiatives (kg)',
     'CO2 Emissions per km/mile (kg/km)'
 ]
-
 predicted_vars = {
     'Total CO2 Emissions from Facility (kg)': ('Actual CO2 Emissions from Facility (kg)', 'Predicted CO2 Emissions from Facility (kg)'),
     'CO2 Emissions After Initiatives (kg)': ('Actual CO2 Emissions After Initiatives (kg)', 'Predicted CO2 Emissions After Initiatives (kg)'),
     'CO2 Emissions per km/mile (kg/km)': ('Actual CO2 Emissions per km/mile (kg/km)', 'Predicted CO2 Emissions per km/mile (kg/km)')
 }
-
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year']
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
@@ -105,17 +119,7 @@ for target in target_vars:
     min_max_dict[target] = (min_val, max_val)
 
     percentile = (pred - min_val) / (max_val - min_val) if max_val > min_val else 0
-    if percentile <= 0.25:
-        grade = 'A'
-    elif percentile <= 0.50:
-        grade = 'B'
-    elif percentile <= 0.75:
-        grade = 'C'
-    elif percentile <= 1.00:
-        grade = 'D'
-    else:
-        grade = 'E'
-
+    grade = 'A' if percentile <= 0.25 else 'B' if percentile <= 0.50 else 'C' if percentile <= 0.75 else 'D'
     grades.append(grade)
     scores.append(grade_map[grade])
 
@@ -123,21 +127,11 @@ for target in target_vars:
 # Overall Grade Calculation
 # ------------------------------
 avg_score = np.mean(scores)
-if avg_score >= 4.5:
-    overall = 'A'
-elif avg_score >= 3.5:
-    overall = 'B'
-elif avg_score >= 2.5:
-    overall = 'C'
-elif avg_score >= 1.5:
-    overall = 'D'
-else:
-    overall = 'E'
-
+overall = 'A' if avg_score >= 4.5 else 'B' if avg_score >= 3.5 else 'C' if avg_score >= 2.5 else 'D'
 render_grade_banner(overall, grade_labels[overall])
 
 # ------------------------------
-# Tabs
+# Tabs: Forecast & History
 # ------------------------------
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
@@ -154,13 +148,12 @@ with tab1:
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
 
-    # Date range slider (limited to this tab)
-    min_date = df['Date'].min().to_pydatetime()
-    max_date = df['Date'].max().to_pydatetime()
+    min_date = df['Date'].min().date()
+    max_date = df['Date'].max().date()
     selected_range = st.slider("Select Date Range", min_value=min_date, max_value=max_date,
                                 value=(min_date, max_date), format="YYYY-MM-DD")
 
-    df_filtered = df[(df['Date'] >= selected_range[0]) & (df['Date'] <= selected_range[1])]
+    df_filtered = df[(df['Date'].dt.date >= selected_range[0]) & (df['Date'].dt.date <= selected_range[1])]
 
     for target in target_vars:
         st.markdown(f"**{target}**")
@@ -170,28 +163,13 @@ with tab2:
             st.warning(f"Missing data: {actual_col} or {pred_col}")
             continue
 
-        # Coerce to numeric to avoid plotting issues
-        df_filtered[actual_col] = pd.to_numeric(df_filtered[actual_col], errors='coerce')
-        df_filtered[pred_col] = pd.to_numeric(df_filtered[pred_col], errors='coerce')
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.plot(df_filtered['Date'], df_filtered[actual_col], label="Actual", color='blue', marker='o')
+        ax.plot(df_filtered['Date'], df_filtered[pred_col], label="Predicted", color='red', linestyle='--', marker='x')
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=df_filtered['Date'], y=df_filtered[actual_col],
-            mode='lines+markers', name='Actual', line=dict(color='blue')
-        ))
-        fig.add_trace(go.Scatter(
-            x=df_filtered['Date'], y=df_filtered[pred_col],
-            mode='lines+markers', name='Predicted', line=dict(color='red', dash='dot')
-        ))
-
-        fig.update_layout(
-            xaxis_title="Date",
-            yaxis_title=target,
-            hovermode="x unified",
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='white'),
-            legend=dict(font=dict(color='white'))
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
+        ax.set_title(target)
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Emissions (kg or kg/km)")
+        ax.legend()
+        ax.grid(True, linestyle='--', alpha=0.6)
+        st.pyplot(fig)
