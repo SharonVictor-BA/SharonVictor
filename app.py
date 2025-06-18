@@ -23,7 +23,9 @@ st.set_page_config(page_title="CO2 Emission Forecasting App", page_icon="🌿", 
 # ------------------------------
 # App Header
 # ------------------------------
-st.image("https://geographical.co.uk/wp-content/uploads/carbon-dioxide-emissions-title.jpg", width=80)
+st.image(
+    "https://geographical.co.uk/wp-content/uploads/carbon-dioxide-emissions-title.jpg", width=80
+)
 st.title("🌍 CO2 Emission Forecasting App")
 st.caption("Built for Industrial Auditing Purposes")
 
@@ -31,9 +33,9 @@ st.markdown("""
 This application enables organizations to forecast CO₂ emissions based on operational and supply chain inputs.
 
 **Business Value:**
-- Track CO₂ footprint across supply chain
-- Compare forecast vs historical emissions
-- Make data-driven ESG decisions
+- Track CO₂ footprint across supply chain  
+- Compare forecast vs historical emissions  
+- Make data-driven ESG decisions  
 """)
 
 # ------------------------------
@@ -44,16 +46,19 @@ df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
-# Variable Definitions
+# Define targets and features
 target_vars = [
     'Total CO2 Emissions from Facility (kg)',
     'CO2 Emissions After Initiatives (kg)',
     'CO2 Emissions per km/mile (kg/km)'
 ]
-categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
+categorical_features = [
+    'Facility Type', 'Emission Source', 'Transport Mode',
+    'Material Type', 'Supply Chain Activity'
+]
 numeric_features = ['Year', 'Month']
 
-# Dropdown Options
+# Dropdown options
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
@@ -72,128 +77,113 @@ selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_A
 
 today = date.today()
 max_date = today + timedelta(days=365)
-selected_pred_date = st.sidebar.date_input("Date of Prediction", value=today + timedelta(days=30), min_value=today, max_value=max_date)
+selected_pred_date = st.sidebar.date_input(
+    "Prediction Date (within 1 year)",
+    value=today + timedelta(days=30),
+    min_value=today,
+    max_value=max_date
+)
 
 # ------------------------------
-# Tabs
+# Tabs Definition
 # ------------------------------
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
-# ---------------- Overall Grade ----------------
-st.markdown("### 🌍 Overall Environmental Emission Grade")
-
-# Define score mapping
-grade_score_map = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1}
-grade_color_map = {
-    'A': '🟩 Excellent (A)',
-    'B': '🟦 Good (B)',
-    'C': '🟨 Moderate (C)',
-    'D': '🟥 Poor (D)',
-    'E': '🟥 Critical (E)'
-}
-
-grades = []
-
-for target in target_vars:
-    min_val = df[target].min()
-    max_val = df[target].max()
-
-    # Reuse prediction from earlier block
-    pred = model.predict(full_input)[0]
-
-    # Grade determination based on percentile brackets
-    q1 = np.percentile(df[target], 25)
-    q2 = np.percentile(df[target], 50)
-    q3 = np.percentile(df[target], 75)
-
-    if pred <= q1:
-        grade = 'A'
-    elif pred <= q2:
-        grade = 'B'
-    elif pred <= q3:
-        grade = 'C'
-    elif pred <= max_val:
-        grade = 'D'
-    else:
-        grade = 'E'
-
-    grades.append(grade)
-
-# Calculate average grade
-average_score = np.mean([grade_score_map[g] for g in grades])
-if average_score >= 4.5:
-    overall = 'A'
-elif average_score >= 3.5:
-    overall = 'B'
-elif average_score >= 2.5:
-    overall = 'C'
-elif average_score >= 1.5:
-    overall = 'D'
-else:
-    overall = 'E'
-
-st.success(f"✅ Overall Environmental Emission Grade: {grade_color_map[overall]}")
-st.caption("This grade is based on percentile-normalized CO₂ predictions across 3 dimensions.")
-
-# ---- Forecast Tab ----
+# ---- Tab 1: Forecast & KPIs ----
 with tab1:
-    st.subheader("Predicted CO2 KPIs")
+    st.subheader("🌍 Overall Environmental Emission Grade")
 
+    # Grading maps
+    grade_score_map = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1}
+    grade_color_map = {
+        'A': '🟩 Excellent (A)',
+        'B': '🟦 Good (B)',
+        'C': '🟨 Moderate (C)',
+        'D': '🟥 Poor (D)',
+        'E': '🟥 Critical (E)'
+    }
+
+    grades = []
     col1, col2, col3 = st.columns(3)
 
     for i, target in enumerate(target_vars):
-        # Model training
+        # Prepare training data
         X = pd.get_dummies(df[categorical_features + numeric_features])
         y = df[target]
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
         model = RandomForestRegressor(n_estimators=200, random_state=42)
         model.fit(X_train, y_train)
 
-        # Input for prediction
-        input_data = {
-            'Facility Type_' + selected_facility: 1,
-            'Emission Source_' + selected_emission: 1,
-            'Transport Mode_' + selected_transport: 1,
-            'Material Type_' + selected_material: 1,
-            'Supply Chain Activity_' + selected_activity: 1,
+        # Build input for prediction
+        inp = {
+            f'Facility Type_{selected_facility}': 1,
+            f'Emission Source_{selected_emission}': 1,
+            f'Transport Mode_{selected_transport}': 1,
+            f'Material Type_{selected_material}': 1,
+            f'Supply Chain Activity_{selected_activity}': 1,
             'Year': selected_pred_date.year,
             'Month': selected_pred_date.month
         }
-        full_input = pd.DataFrame([input_data])
+        full_input = pd.DataFrame([inp])
         for col in X.columns:
             if col not in full_input.columns:
                 full_input[col] = 0
         full_input = full_input[X.columns]
 
-        # Prediction
+        # Prediction and interval
         pred = model.predict(full_input)[0]
-        predictions = [tree.predict(full_input)[0] for tree in model.estimators_]
-        conf_int = np.percentile(predictions, [2.5, 97.5])
+        preds = [tree.predict(full_input)[0] for tree in model.estimators_]
+        conf_int = np.percentile(preds, [2.5, 97.5])
 
-        min_val = df[target].min()
-        max_val = df[target].max()
+        # Historical stats
+        hist_min = df[target].min()
+        hist_max = df[target].max()
 
-        # KPI Cards
-        if i == 0:
-            with col1:
-                st.metric(label=f"{target}", value=f"{pred:,.2f}")
-                st.success(f"Min: {min_val:,.2f}")
-                st.warning(f"Max: {max_val:,.2f}")
-        elif i == 1:
-            with col2:
-                st.metric(label=f"{target}", value=f"{pred:,.2f}")
-                st.success(f"Min: {min_val:,.2f}")
-                st.warning(f"Max: {max_val:,.2f}")
+        # Determine grade
+        q1, q2, q3 = np.percentile(df[target], [25, 50, 75])
+        if pred <= q1:
+            grade = 'A'
+        elif pred <= q2:
+            grade = 'B'
+        elif pred <= q3:
+            grade = 'C'
+        elif pred <= hist_max:
+            grade = 'D'
         else:
-            with col3:
-                st.metric(label=f"{target}", value=f"{pred:,.2f}")
-                st.success(f"Min: {min_val:,.2f}")
-                st.warning(f"Max: {max_val:,.2f}")
+            grade = 'E'
+        grades.append(grade)
 
-# ---- Historical Comparison Tab ----
+        # Render KPI card
+        col = [col1, col2, col3][i]
+        with col:
+            st.metric(label=target, value=f"{pred:,.2f}")
+            st.success(f"Min: {hist_min:,.2f}")
+            st.warning(f"Max: {hist_max:,.2f}")
+
+    # Compute and display overall grade
+    avg_score = np.mean([grade_score_map[g] for g in grades])
+    if avg_score >= 4.5:
+        overall = 'A'
+    elif avg_score >= 3.5:
+        overall = 'B'
+    elif avg_score >= 2.5:
+        overall = 'C'
+    elif avg_score >= 1.5:
+        overall = 'D'
+    else:
+        overall = 'E'
+
+    st.success(f"✅ Overall Environmental Emission Grade: {grade_color_map[overall]}")
+    st.caption("Grade based on percentile-normalized CO₂ predictions across 3 metrics.")
+
+# ---- Tab 2: Historical Comparison ----
 with tab2:
-    st.subheader("Historical CO2 Emissions Comparison")
-    filtered_df = df[
+    st.subheader("Historical CO₂ Emissions Comparison")
+
+    # Filter by selected parameters
+    filtered = df[
         (df['Facility Type'] == selected_facility) &
         (df['Emission Source'] == selected_emission) &
         (df['Transport Mode'] == selected_transport) &
@@ -201,18 +191,21 @@ with tab2:
         (df['Supply Chain Activity'] == selected_activity)
     ].sort_values('Date')
 
-    if not filtered_df.empty:
+    if filtered.empty:
+        st.warning("No matching historical data for selected inputs.")
+    else:
         for target in target_vars:
             st.markdown(f"**{target}**")
             fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(filtered_df['Date'], filtered_df[target], linestyle='-', linewidth=2, label='Historical')
+            ax.plot(filtered['Date'], filtered[target], label='Historical', linewidth=2)
             ax.set_facecolor("none")
             fig.patch.set_alpha(0.0)
-            ax.axvline(pd.to_datetime(selected_pred_date), color='orange', linestyle='--', label='Prediction Date')
+            ax.axvline(
+                pd.to_datetime(selected_pred_date),
+                color='orange', linestyle='--', label='Prediction Date'
+            )
             ax.set_xlabel("Date")
             ax.set_ylabel(target)
             ax.grid(True, linestyle=':', alpha=0.6)
             ax.legend()
             st.pyplot(fig)
-    else:
-        st.warning("No matching historical data found for selected inputs.")
