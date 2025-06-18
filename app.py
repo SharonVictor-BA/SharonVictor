@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 
-# Page Setup
+# Streamlit page configuration
 st.set_page_config(page_title="CO2 Emission Forecasting App", page_icon="🌿", layout="wide")
 
 # Grade banner
@@ -33,7 +33,6 @@ def render_grade_banner(grade_letter, grade_label):
 st.image("https://geographical.co.uk/wp-content/uploads/carbon-dioxide-emissions-title.jpg", width=80)
 st.title("🌍 CO2 Emission Forecasting App")
 st.caption("Built for Industrial Auditing Purposes")
-
 st.markdown("""
 This application enables organizations to forecast CO₂ emissions based on operational and supply chain inputs.
 
@@ -43,7 +42,7 @@ This application enables organizations to forecast CO₂ emissions based on oper
 - Make data-driven ESG decisions
 """)
 
-# Load Data
+# Load dataset
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
@@ -63,20 +62,13 @@ predicted_vars = {
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
 
-# Dropdown options
-FACILITY_TYPES = df['Facility Type'].unique().tolist()
-EMISSION_SOURCES = df['Emission Source'].unique().tolist()
-TRANSPORT_MODES = df['Transport Mode'].unique().tolist()
-MATERIAL_TYPES = df['Material Type'].unique().tolist()
-SUPPLY_CHAIN_ACTIVITIES = df['Supply Chain Activity'].unique().tolist()
-
-# Sidebar inputs
+# Sidebar Filters
 st.sidebar.header("📥 Forecast Parameters")
-selected_facility = st.sidebar.selectbox("Facility Type", FACILITY_TYPES)
-selected_emission = st.sidebar.selectbox("Emission Source", EMISSION_SOURCES)
-selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
-selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
-selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
+selected_facility = st.sidebar.selectbox("Facility Type", df['Facility Type'].unique())
+selected_emission = st.sidebar.selectbox("Emission Source", df['Emission Source'].unique())
+selected_transport = st.sidebar.selectbox("Transport Mode", df['Transport Mode'].unique())
+selected_material = st.sidebar.selectbox("Material Type", df['Material Type'].unique())
+selected_activity = st.sidebar.selectbox("Supply Chain Activity", df['Supply Chain Activity'].unique())
 today = date.today()
 selected_pred_date = st.sidebar.date_input("Date of Prediction", value=today + timedelta(days=30),
                                            min_value=today, max_value=today + timedelta(days=365))
@@ -133,7 +125,7 @@ for target in target_vars:
     grades.append(grade)
     scores.append(grade_map[grade])
 
-# Overall Grade
+# Overall grade
 avg_score = np.mean(scores)
 if avg_score >= 4.5:
     overall = 'A'
@@ -151,7 +143,7 @@ render_grade_banner(overall, grade_labels[overall])
 # Tabs
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
-# Tab 1: KPIs
+# Forecast Tab
 with tab1:
     for target in target_vars:
         st.markdown(f"### {target}")
@@ -160,7 +152,7 @@ with tab1:
         st.warning(f"Max: {min_max_dict[target][1]:,.2f}")
         st.markdown("---")
 
-# Tab 2: Chart
+# Historical Chart Tab
 with tab2:
     st.subheader("Historical CO₂ Emissions Comparison")
     filtered_df = df[
@@ -173,10 +165,11 @@ with tab2:
 
     if not filtered_df.empty:
         for target in target_vars:
+            pred_col = predicted_vars[target]
             st.markdown(f"**{target}**")
             fig, ax = plt.subplots(figsize=(10, 4))
             ax.plot(filtered_df['Date'], filtered_df[target], label="Historical", color="tab:blue")
-            ax.plot(filtered_df['Date'], filtered_df[predicted_vars[target]], label="Predicted", linestyle='dotted', color="red")
+            ax.plot(filtered_df['Date'], filtered_df[pred_col], label="Predicted", linestyle='dotted', color="red")
             ax.set_facecolor("none")
             fig.patch.set_alpha(0.0)
             ax.set_xlabel("Date", color="white")
