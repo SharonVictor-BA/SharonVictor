@@ -3,6 +3,7 @@ import streamlit as st
 from datetime import date, timedelta
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 
 # Try Plotly, fallback to Matplotlib
@@ -51,7 +52,7 @@ This application enables organizations to forecast CO₂ emissions based on oper
 # Load Data
 # ------------------------------
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
-df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y', errors='coerce')
+df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 
 # ------------------------------
@@ -175,46 +176,31 @@ with tab1:
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
 
-    # Date Range Filter for Tab 2
-    min_date = df['Date'].min().date()
-    max_date = df['Date'].max().date()
-    selected_dates = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
-    chart_df = df[(df['Date'].dt.date >= selected_dates[0]) & (df['Date'].dt.date <= selected_dates[1])]
+    min_date = df['Date'].min()
+    max_date = df['Date'].max()
+    selected_range = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
+
+    df_filtered = df[(df['Date'] >= selected_range[0]) & (df['Date'] <= selected_range[1])]
 
     for target in target_vars:
         st.markdown(f"**{target}**")
         actual_col, pred_col = predicted_vars[target]
 
-        if PLOTLY_AVAILABLE:
-            fig = go.Figure()
+        fig = go.Figure()
+        if actual_col in df_filtered.columns:
+            fig.add_trace(go.Scatter(x=df_filtered['Date'], y=df_filtered[actual_col],
+                                     mode='lines+markers', name='Actual', line=dict(color='blue')))
+        if pred_col in df_filtered.columns:
+            fig.add_trace(go.Scatter(x=df_filtered['Date'], y=df_filtered[pred_col],
+                                     mode='lines+markers', name='Predicted', line=dict(color='red', dash='dot')))
 
-            if actual_col in chart_df.columns:
-                fig.add_trace(go.Scatter(x=chart_df['Date'], y=chart_df[actual_col],
-                                         mode='lines+markers', name='Actual', line=dict(color='blue')))
-            if pred_col in chart_df.columns:
-                fig.add_trace(go.Scatter(x=chart_df['Date'], y=chart_df[pred_col],
-                                         mode='lines+markers', name='Predicted', line=dict(color='red', dash='dot')))
+        fig.update_layout(
+            xaxis_title='Date',
+            yaxis_title=target,
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            legend=dict(font=dict(color='white')),
+            font=dict(color='white')
+        )
 
-            fig.update_layout(
-                xaxis_title='Date',
-                yaxis_title=target,
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                legend=dict(font=dict(color='white')),
-                font=dict(color='white')
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-        else:
-            import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(figsize=(10, 4))
-            if actual_col in chart_df.columns:
-                ax.plot(chart_df['Date'], chart_df[actual_col], label='Actual', color='blue', marker='o')
-            if pred_col in chart_df.columns:
-                ax.plot(chart_df['Date'], chart_df[pred_col], label='Predicted', color='red', linestyle='dotted', marker='x')
-            ax.set_xlabel("Date")
-            ax.set_ylabel(target)
-            ax.set_title(f"{target}")
-            ax.legend()
-            ax.grid(True, linestyle='--', alpha=0.6)
-            st.pyplot(fig)
+        st.plotly_chart(fig, use_container_width=True)
