@@ -147,7 +147,7 @@ else:
 # --- Grade Display as KPI Card ---
 st.markdown(f"""
 <div style="background-color:#007BFF;padding:15px;border-radius:10px;">
-    <h3 style="color:white;">✅ Overall Environmental Emission Grade: {grade_color_map[overall]}</h3>
+    <h3 style="color:white;">Overall Environmental Emission Grade: {grade_color_map[overall]}</h3>
 </div>
 """, unsafe_allow_html=True)
 
