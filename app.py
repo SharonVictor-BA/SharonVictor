@@ -8,7 +8,7 @@ Original file is located at
 """
 
 import streamlit as st
-from datetime import date
+from datetime import date, timedelta
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,47 +16,42 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
 # ------------------------------
-# Page config & branding
+# Page Configuration
 # ------------------------------
-st.set_page_config(
-    page_title="CO2 Emission Forecasting App",
-    page_icon="🌿",
-    layout="wide"
-)
+st.set_page_config(page_title="CO2 Emission Forecasting App", page_icon="🌿", layout="wide")
 
 # ------------------------------
-# Header, Intro, Branding
+# App Header
 # ------------------------------
 st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Green_leaf_icon.svg/1024px-Green_leaf_icon.svg.png", width=80)
-st.title("🌍 Carbon Emission Forecasting App")
+st.title("🌍 CO2 Emission Forecasting App")
 st.caption("Built with 💚 using Streamlit + Random Forest")
 
 st.markdown("""
-This application enables organizations to forecast CO₂ emissions based on supply chain and operational parameters.
+This application enables organizations to forecast CO₂ emissions based on operational and supply chain inputs.
 
-**Benefits & Business Value:**
-- ✅ Identify emission hotspots across operations  
-- ✅ Make data-driven sustainability decisions  
-- ✅ Monitor progress toward ESG goals  
-- ✅ Visualize emission trends over time  
+**Business Value:**
+- Track CO₂ footprint across supply chain
+- Compare forecast vs historical emissions
+- Make data-driven ESG decisions
 """)
 
 # ------------------------------
-# Load and preprocess data
+# Load and preprocess dataset
 # ------------------------------
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
-# Constants
-categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
-numeric_features = ['Year', 'Month']
+# Define constants
 target_vars = [
     'Total CO2 Emissions from Facility (kg)',
     'CO2 Emissions After Initiatives (kg)',
     'CO2 Emissions per km/mile (kg/km)'
 ]
+categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
+numeric_features = ['Year', 'Month']
 
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
@@ -65,7 +60,7 @@ MATERIAL_TYPES = ['Aluminum', 'Plastic', 'Steel']
 SUPPLY_CHAIN_ACTIVITIES = ['Inbound', 'Internal', 'Outbound']
 
 # ------------------------------
-# Sidebar Filters & Inputs
+# Sidebar Inputs
 # ------------------------------
 st.sidebar.header("📥 Forecast Parameters")
 selected_facility = st.sidebar.selectbox("Facility Type", FACILITY_TYPES)
@@ -74,33 +69,36 @@ selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
 selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
 selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
 
-selected_pred_date = st.sidebar.date_input(
-    "Prediction Date", 
-    value=date(2027, 1, 1), 
-    min_value=date(1997, 1, 1), 
-    max_value=date(2050, 12, 31)
-)
+today = date.today()
+max_date = today + timedelta(days=365)
+selected_pred_date = st.sidebar.date_input("Prediction Date (within 1 year)", value=today + timedelta(days=30), min_value=today, max_value=max_date)
 
 # ------------------------------
-# Layout: Prediction and Graphs Tabs
+# Create tabs for each target variable
 # ------------------------------
-tab1, tab2 = st.tabs(["🔮 Emission Forecast", "📊 Historical Emission Trends"])
+tabs = st.tabs([f"📊 {target}" for target in target_vars])
 
-# ------------------------------
-# Tab 1 – Prediction
-# ------------------------------
-with tab1:
-    st.subheader("🔮 CO2 Prediction for Selected Inputs")
+for i, target in enumerate(target_vars):
+    with tabs[i]:
+        st.subheader(f"{target} – Forecast vs Historical")
 
-    X = pd.get_dummies(df[categorical_features + numeric_features])
-    prediction_results = {}
+        # Filter historical data
+        filtered_df = df[
+            (df['Facility Type'] == selected_facility) &
+            (df['Emission Source'] == selected_emission) &
+            (df['Transport Mode'] == selected_transport) &
+            (df['Material Type'] == selected_material) &
+            (df['Supply Chain Activity'] == selected_activity)
+        ][['Date', target]].dropna().sort_values('Date')
 
-    for target in target_vars:
+        # Model training
+        X = pd.get_dummies(df[categorical_features + numeric_features])
         y = df[target]
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         model = RandomForestRegressor(n_estimators=200, random_state=42)
         model.fit(X_train, y_train)
 
+        # Prepare input for prediction
         input_data = {
             'Facility Type_' + selected_facility: 1,
             'Emission Source_' + selected_emission: 1,
@@ -110,57 +108,37 @@ with tab1:
             'Year': selected_pred_date.year,
             'Month': selected_pred_date.month
         }
-
         full_input = pd.DataFrame([input_data])
         for col in X.columns:
             if col not in full_input.columns:
                 full_input[col] = 0
         full_input = full_input[X.columns]
 
+        # Prediction + confidence interval
         pred = model.predict(full_input)[0]
         predictions = [tree.predict(full_input)[0] for tree in model.estimators_]
         conf_int = np.percentile(predictions, [2.5, 97.5])
 
-        prediction_results[target] = {
-            'value': pred,
-            'interval': conf_int
-        }
+        # Historical min/max
+        hist_min = filtered_df[target].min()
+        hist_max = filtered_df[target].max()
 
-    for target, result in prediction_results.items():
-        st.metric(label=f"{target}", value=f"{result['value']:,.2f}")
-        st.info(f"95% Prediction Interval: [{result['interval'][0]:,.2f}, {result['interval'][1]:,.2f}]")
+        # Display results
+        st.metric(label="Predicted Value", value=f"{pred:,.2f}")
+        st.info(f"95% Confidence Interval: [{conf_int[0]:,.2f}, {conf_int[1]:,.2f}]")
+        st.success(f"📉 Historical Min: {hist_min:,.2f}    📈 Historical Max: {hist_max:,.2f}")
 
-# ------------------------------
-# Tab 2 – Historical Graphs for All Targets
-# ------------------------------
-with tab2:
-    st.subheader("📊 Historical CO2 Emission Trends")
-
-    min_date = df['Date'].min().date()
-    max_date = df['Date'].max().date()
-
-    date_range = st.slider(
-        "Select Date Range",
-        min_value=min_date,
-        max_value=max_date,
-        value=(min_date, max_date)
-    )
-
-    filtered_df = df[
-        (df['Facility Type'] == selected_facility) &
-        (df['Emission Source'] == selected_emission) &
-        (df['Transport Mode'] == selected_transport) &
-        (df['Material Type'] == selected_material) &
-        (df['Supply Chain Activity'] == selected_activity) &
-        (df['Date'] >= pd.to_datetime(date_range[0])) &
-        (df['Date'] <= pd.to_datetime(date_range[1]))
-    ]
-
-    if not filtered_df.empty:
-        for target in target_vars:
-            st.subheader(f"📈 {target}")
-            chart_df = filtered_df[['Date', target]].dropna().sort_values('Date')
-            st.line_chart(chart_df.rename(columns={target: "Value"}).set_index('Date'))
-    else:
-        st.warning("No data found for the selected filters and date range.")
-
+        # Plot comparison
+        if not filtered_df.empty:
+            fig, ax = plt.subplots(figsize=(10, 4))
+            ax.plot(filtered_df['Date'], filtered_df[target], label='Historical Trend', linestyle='--')
+            ax.axvline(pd.to_datetime(selected_pred_date), color='orange', linestyle=':', label='Prediction Date')
+            ax.scatter(pd.to_datetime(selected_pred_date), pred, color='red', zorder=5, label='Predicted Value')
+            ax.set_xlabel("Date")
+            ax.set_ylabel(target)
+            ax.set_title(f"{target} – Real-Time Forecast vs Historical")
+            ax.legend()
+            ax.grid(True)
+            st.pyplot(fig)
+        else:
+            st.warning("No historical data available for the selected filter combination.")
