@@ -176,9 +176,10 @@ with tab1:
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
 
-    min_date = df['Date'].min()
-    max_date = df['Date'].max()
-    selected_range = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
+    min_date = df['Date'].min().to_pydatetime()
+    max_date = df['Date'].max().to_pydatetime()
+    selected_range = st.slider("Select Date Range", min_value=min_date, max_value=max_date,
+                                value=(min_date, max_date), format="%Y-%m-%d")
 
     df_filtered = df[(df['Date'] >= selected_range[0]) & (df['Date'] <= selected_range[1])]
 
@@ -195,7 +196,7 @@ with tab2:
                                      mode='lines+markers', name='Predicted', line=dict(color='red', dash='dot')))
 
         fig.update_layout(
-            xaxis_title='Year',
+            xaxis_title='Date',
             yaxis_title='Emissions (kg or kg/km)',
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
