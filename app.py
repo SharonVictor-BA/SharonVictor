@@ -7,6 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/18AWPCMqJpvj-38SHmHtKDX6Mh4_ZQust
 """
 
+# -*- coding: utf-8 -*-
 import streamlit as st
 from datetime import date, timedelta
 import pandas as pd
@@ -42,6 +43,14 @@ target_vars = [
     'CO2 Emissions After Initiatives (kg)',
     'CO2 Emissions per km/mile (kg/km)'
 ]
+
+# Mapping to predicted values
+predicted_cols = {
+    'Total CO2 Emissions from Facility (kg)': 'Predicted CO2 Emissions from Facility (kg)',
+    'CO2 Emissions After Initiatives (kg)': 'Predicted CO2 Emissions After Initiatives (kg)',
+    'CO2 Emissions per km/mile (kg/km)': 'Predicted CO2 Emissions per km/mile (kg/km)'
+}
+
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
@@ -110,9 +119,9 @@ with tab1:
         st.warning(f"Max: {min_max_dict[target][1]:,.2f}")
         st.markdown("---")
 
-# --- Tab 2: Historical with Prediction Dot ---
+# --- Tab 2: Historical with Prediction Line ---
 with tab2:
-    st.subheader("📊 Historical CO₂ Emissions Comparison")
+    st.subheader("📊 Historical vs Forecasted CO₂ Emissions")
 
     filtered_df = df[
         (df['Facility Type'] == selected_facility) &
@@ -127,25 +136,22 @@ with tab2:
             st.markdown(f"#### {target}")
             fig, ax = plt.subplots(figsize=(10, 4))
 
-            # Historical trend
-            ax.plot(filtered_df['Date'], filtered_df[target], label="Historical", color="tab:blue")
+            # Historical line
+            ax.plot(filtered_df['Date'], filtered_df[target], label="Actual", color="blue")
 
-            # Prediction vertical line
-            ax.axvline(selected_pred_date, color='orange', linestyle='--', label="Prediction Date")
+            # Forecasted line (dotted)
+            pred_col = predicted_cols[target]
+            if pred_col in filtered_df.columns:
+                ax.plot(filtered_df['Date'], filtered_df[pred_col], label="Predicted", color="red", linestyle='dotted')
 
-            # Prediction point
-            pred_y = predictions_dict[target]
-            ax.plot(selected_pred_date, pred_y, 'ro', label="Predicted Point")
-            ax.annotate(f"{pred_y:,.2f}",
-                        (selected_pred_date, pred_y),
-                        textcoords="offset points", xytext=(0, 10), ha='center', color='red', fontsize=9)
+            # Highlight selected prediction date
+            ax.axvline(pd.to_datetime(selected_pred_date), color='orange', linestyle='--', label="Selected Date")
 
-            # Style
             ax.set_xlabel("Date")
             ax.set_ylabel(target)
+            ax.grid(True, linestyle=':', alpha=0.6)
             ax.set_facecolor("none")
             fig.patch.set_alpha(0.0)
-            ax.grid(True, linestyle=':', alpha=0.6)
             ax.legend()
             st.pyplot(fig)
     else:
