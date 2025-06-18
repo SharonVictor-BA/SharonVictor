@@ -27,7 +27,7 @@ st.title("🌍 CO2 Emission Forecasting App")
 st.caption("Built for Industrial Auditing Purposes")
 
 # ------------------------------
-# Load and Preprocess Data
+# Load Data
 # ------------------------------
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
@@ -35,7 +35,7 @@ df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
 # ------------------------------
-# Definitions
+# Constants
 # ------------------------------
 target_vars = [
     'Total CO2 Emissions from Facility (kg)',
@@ -64,7 +64,7 @@ selected_pred_date = st.sidebar.date_input("Date of Prediction", value=today + t
                                            min_value=today, max_value=today + timedelta(days=365))
 
 # ------------------------------
-# Prediction Model
+# Model Prediction Logic
 # ------------------------------
 predictions_dict = {}
 min_max_dict = {}
@@ -101,7 +101,7 @@ for target in target_vars:
 # ------------------------------
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
-# --- Tab 1: Forecast & KPIs ---
+# --- Tab 1: Forecast ---
 with tab1:
     for target in target_vars:
         st.markdown(f"### {target}")
@@ -110,9 +110,9 @@ with tab1:
         st.warning(f"Max: {min_max_dict[target][1]:,.2f}")
         st.markdown("---")
 
-# --- Tab 2: Historical vs Forecast ---
+# --- Tab 2: Historical with Prediction Dot ---
 with tab2:
-    st.subheader("📊 Historical vs Forecast CO₂ Emissions")
+    st.subheader("📊 Historical CO₂ Emissions Comparison")
 
     filtered_df = df[
         (df['Facility Type'] == selected_facility) &
@@ -127,21 +127,24 @@ with tab2:
             st.markdown(f"#### {target}")
             fig, ax = plt.subplots(figsize=(10, 4))
 
-            # Historical Line
+            # Historical trend
             ax.plot(filtered_df['Date'], filtered_df[target], label="Historical", color="tab:blue")
 
-            # Prediction Point and Line
+            # Prediction vertical line
             ax.axvline(selected_pred_date, color='orange', linestyle='--', label="Prediction Date")
-            ax.plot(selected_pred_date, predictions_dict[target], 'o', color='red', label=f"Predicted: {predictions_dict[target]:,.2f}")
-            ax.annotate(f"{predictions_dict[target]:,.2f}",
-                        (selected_pred_date, predictions_dict[target]),
-                        textcoords="offset points", xytext=(0,10), ha='center', color='red')
 
-            # Styling
-            ax.set_facecolor("none")
-            fig.patch.set_alpha(0.0)
+            # Prediction point
+            pred_y = predictions_dict[target]
+            ax.plot(selected_pred_date, pred_y, 'ro', label="Predicted Point")
+            ax.annotate(f"{pred_y:,.2f}",
+                        (selected_pred_date, pred_y),
+                        textcoords="offset points", xytext=(0, 10), ha='center', color='red', fontsize=9)
+
+            # Style
             ax.set_xlabel("Date")
             ax.set_ylabel(target)
+            ax.set_facecolor("none")
+            fig.patch.set_alpha(0.0)
             ax.grid(True, linestyle=':', alpha=0.6)
             ax.legend()
             st.pyplot(fig)
