@@ -28,7 +28,7 @@ def render_grade_banner(grade_letter, grade_label):
     st.markdown(f"""
     <div style="background: linear-gradient(to right, #3a6073, #16222a); 
                 padding: 18px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="color: white; margin: 0;">🌍 Overall Carbon Emission Grade</h3>
+        <h3 style="color: white; margin: 0;">Overall Carbon Emission Grade</h3>
         <h4 style="color: white; margin: 0; font-weight: 500;">{grade_text}</h4>
     </div>
     """, unsafe_allow_html=True)
@@ -83,7 +83,7 @@ selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
 selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
 selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
 today = date.today()
-selected_pred_date = st.sidebar.date_input("Prediction Date", value=today + timedelta(days=30),
+selected_pred_date = st.sidebar.date_input("Date of Prediction", value=today + timedelta(days=30),
                                            min_value=today, max_value=today + timedelta(days=365))
 
 # ------------------------------
