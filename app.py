@@ -79,6 +79,62 @@ selected_pred_date = st.sidebar.date_input("Date of Prediction", value=today + t
 # ------------------------------
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
+# ---------------- Overall Grade ----------------
+st.markdown("### 🌍 Overall Environmental Emission Grade")
+
+# Define score mapping
+grade_score_map = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1}
+grade_color_map = {
+    'A': '🟩 Excellent (A)',
+    'B': '🟦 Good (B)',
+    'C': '🟨 Moderate (C)',
+    'D': '🟥 Poor (D)',
+    'E': '🟥 Critical (E)'
+}
+
+grades = []
+
+for target in target_vars:
+    min_val = df[target].min()
+    max_val = df[target].max()
+
+    # Reuse prediction from earlier block
+    pred = model.predict(full_input)[0]
+
+    # Grade determination based on percentile brackets
+    q1 = np.percentile(df[target], 25)
+    q2 = np.percentile(df[target], 50)
+    q3 = np.percentile(df[target], 75)
+
+    if pred <= q1:
+        grade = 'A'
+    elif pred <= q2:
+        grade = 'B'
+    elif pred <= q3:
+        grade = 'C'
+    elif pred <= max_val:
+        grade = 'D'
+    else:
+        grade = 'E'
+
+    grades.append(grade)
+
+# Calculate average grade
+average_score = np.mean([grade_score_map[g] for g in grades])
+if average_score >= 4.5:
+    overall = 'A'
+elif average_score >= 3.5:
+    overall = 'B'
+elif average_score >= 2.5:
+    overall = 'C'
+elif average_score >= 1.5:
+    overall = 'D'
+else:
+    overall = 'E'
+
+st.success(f"✅ Overall Environmental Emission Grade: {grade_color_map[overall]}")
+st.caption("This grade is based on percentile-normalized CO₂ predictions across 3 dimensions.")
+
 # ---- Forecast Tab ----
 with tab1:
     st.subheader("Predicted CO2 KPIs")
