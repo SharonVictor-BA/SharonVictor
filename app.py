@@ -14,6 +14,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 
+import streamlit as st
+from datetime import date, timedelta
+import pandas as pd
+import matplotlib.pyplot as plt
+
 # ------------------------------
 # Page Configuration
 # ------------------------------
@@ -34,6 +39,9 @@ df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
+pred_df = pd.read_csv("All_CO2_Predictions_Full_10001.csv")
+pred_df['Date'] = pd.to_datetime(pred_df['Date'], format='%d-%m-%Y')
+
 # ------------------------------
 # Constants
 # ------------------------------
@@ -42,8 +50,11 @@ target_vars = [
     'CO2 Emissions After Initiatives (kg)',
     'CO2 Emissions per km/mile (kg/km)'
 ]
-categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
-numeric_features = ['Year', 'Month']
+pred_target_map = {
+    'Total CO2 Emissions from Facility (kg)': 'Predicted CO2 Emissions from Facility (kg)',
+    'CO2 Emissions After Initiatives (kg)': 'Predicted CO2 Emissions After Initiatives (kg)',
+    'CO2 Emissions per km/mile (kg/km)': 'Predicted CO2 Emissions per km/mile (kg/km)'
+}
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
@@ -64,57 +75,38 @@ selected_pred_date = st.sidebar.date_input("Date of Prediction", value=today + t
                                            min_value=today, max_value=today + timedelta(days=365))
 
 # ------------------------------
-# Model Prediction Logic
+# Filter prediction from CSV
 # ------------------------------
-predictions_dict = {}
-min_max_dict = {}
-
-X = pd.get_dummies(df[categorical_features + numeric_features])
-
-for target in target_vars:
-    y = df[target]
-    model = RandomForestRegressor(n_estimators=200, random_state=42)
-    model.fit(X, y)
-
-    input_data = {
-        'Facility Type_' + selected_facility: 1,
-        'Emission Source_' + selected_emission: 1,
-        'Transport Mode_' + selected_transport: 1,
-        'Material Type_' + selected_material: 1,
-        'Supply Chain Activity_' + selected_activity: 1,
-        'Year': selected_pred_date.year,
-        'Month': selected_pred_date.month
-    }
-
-    input_df = pd.DataFrame([input_data])
-    for col in X.columns:
-        if col not in input_df.columns:
-            input_df[col] = 0
-    input_df = input_df[X.columns]
-
-    pred = model.predict(input_df)[0]
-    predictions_dict[target] = pred
-    min_max_dict[target] = (df[target].min(), df[target].max())
+filtered_pred = pred_df[
+    (pred_df['Facility Type'] == selected_facility) &
+    (pred_df['Emission Source'] == selected_emission) &
+    (pred_df['Transport Mode'] == selected_transport) &
+    (pred_df['Material Type'] == selected_material) &
+    (pred_df['Supply Chain Activity'] == selected_activity) &
+    (pred_df['Date'] == pd.to_datetime(selected_pred_date))
+]
 
 # ------------------------------
 # Tabs
 # ------------------------------
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
-# --- Tab 1: Forecast ---
+# --- Tab 1: Prediction Metrics
 with tab1:
-    for target in target_vars:
-        st.markdown(f"### {target}")
-        st.metric(label="Predicted Value", value=f"{predictions_dict[target]:,.2f}")
-        st.success(f"Min: {min_max_dict[target][0]:,.2f}")
-        st.warning(f"Max: {min_max_dict[target][1]:,.2f}")
-        st.markdown("---")
+    if not filtered_pred.empty:
+        for target in target_vars:
+            pred_val = filtered_pred[pred_target_map[target]].values[0]
+            st.markdown(f"### {target}")
+            st.metric(label="Predicted Value", value=f"{pred_val:,.2f}")
+            st.markdown("---")
+    else:
+        st.warning("No prediction data available for the selected combination.")
 
-# --- Tab 2: Historical with Prediction Dot ---
+# --- Tab 2: Historical + Prediction Line
 with tab2:
-    st.subheader("📊 Historical CO₂ Emissions Comparison")
+    st.subheader("📊 Historical vs Forecast (External) CO₂ Emissions")
 
-    filtered_df = df[
+    filtered_hist = df[
         (df['Facility Type'] == selected_facility) &
         (df['Emission Source'] == selected_emission) &
         (df['Transport Mode'] == selected_transport) &
@@ -122,30 +114,41 @@ with tab2:
         (df['Supply Chain Activity'] == selected_activity)
     ].sort_values('Date')
 
-    if not filtered_df.empty:
+    filtered_pred_full = pred_df[
+        (pred_df['Facility Type'] == selected_facility) &
+        (pred_df['Emission Source'] == selected_emission) &
+        (pred_df['Transport Mode'] == selected_transport) &
+        (pred_df['Material Type'] == selected_material) &
+        (pred_df['Supply Chain Activity'] == selected_activity)
+    ].sort_values('Date')
+
+    if not filtered_hist.empty:
         for target in target_vars:
             st.markdown(f"#### {target}")
             fig, ax = plt.subplots(figsize=(10, 4))
 
-            # Historical trend
-            ax.plot(filtered_df['Date'], filtered_df[target], label="Historical", color="tab:blue")
+            # Historical
+            ax.plot(filtered_hist['Date'], filtered_hist[target], label="Historical", color="tab:blue")
 
-            # Prediction vertical line
-            ax.axvline(selected_pred_date, color='orange', linestyle='--', label="Prediction Date")
+            # Prediction Dotted Line
+            if not filtered_pred_full.empty:
+                ax.plot(
+                    filtered_pred_full['Date'],
+                    filtered_pred_full[pred_target_map[target]],
+                    linestyle='dotted',
+                    color='red',
+                    label="Predicted"
+                )
 
-            # Prediction point
-            pred_y = predictions_dict[target]
-            ax.plot(selected_pred_date, pred_y, 'ro', label="Predicted Point")
-            ax.annotate(f"{pred_y:,.2f}",
-                        (selected_pred_date, pred_y),
-                        textcoords="offset points", xytext=(0, 10), ha='center', color='red', fontsize=9)
+            # Highlighted Date
+            ax.axvline(pd.to_datetime(selected_pred_date), color='orange', linestyle='--', label="Prediction Date")
 
-            # Style
+            # Styling
             ax.set_xlabel("Date")
             ax.set_ylabel(target)
+            ax.grid(True, linestyle=':', alpha=0.6)
             ax.set_facecolor("none")
             fig.patch.set_alpha(0.0)
-            ax.grid(True, linestyle=':', alpha=0.6)
             ax.legend()
             st.pyplot(fig)
     else:
