@@ -7,14 +7,11 @@ Original file is located at
     https://colab.research.google.com/drive/18AWPCMqJpvj-38SHmHtKDX6Mh4_ZQust
 """
 
-pip install plotly
-
 # -*- coding: utf-8 -*-
 import streamlit as st
 from datetime import date, timedelta
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 
 # Try Plotly, fallback to Matplotlib
@@ -188,7 +185,6 @@ with tab1:
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
 
-    # Date Range Filter (applies only to Tab 2)
     min_date = df['Date'].min().date()
     max_date = df['Date'].max().date()
     selected_dates = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
@@ -224,7 +220,7 @@ with tab2:
                 ax.plot(chart_df['Date'], chart_df[actual_col], label='Actual', color='blue', marker='o')
             if pred_col in chart_df.columns:
                 ax.plot(chart_df['Date'], chart_df[pred_col], label='Predicted', color='red', linestyle='dotted', marker='x')
-            
+
             ax.set_xlabel("Date")
             ax.set_ylabel(target)
             ax.set_title(f"{target}")
