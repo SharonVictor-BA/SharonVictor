@@ -70,18 +70,25 @@ predicted_vars = {
     'CO2 Emissions After Initiatives (kg)': ('Actual CO2 Emissions After Initiatives (kg)', 'Predicted CO2 Emissions After Initiatives (kg)'),
     'CO2 Emissions per km/mile (kg/km)': ('Actual CO2 Emissions per km/mile (kg/km)', 'Predicted CO2 Emissions per km/mile (kg/km)')
 }
+# Updated to use specific columns: AF, AG, AH, AI, AJ, AK
+column_map = {
+    'Total CO2 Emissions from Facility (kg)': ('AF', 'AG'),
+    'CO2 Emissions After Initiatives (kg)': ('AH', 'AI'),
+    'CO2 Emissions per km/mile (kg/km)': ('AJ', 'AK')
+}
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
+
+# ------------------------------
+# Sidebar Inputs for Prediction Only
+# ------------------------------
+st.sidebar.header("📥 Forecast Parameters")
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
 MATERIAL_TYPES = ['Aluminum', 'Plastic', 'Steel']
 SUPPLY_CHAIN_ACTIVITIES = ['Inbound', 'Internal', 'Outbound']
 
-# ------------------------------
-# Sidebar Inputs
-# ------------------------------
-st.sidebar.header("📥 Forecast Parameters")
 selected_facility = st.sidebar.selectbox("Facility Type", FACILITY_TYPES)
 selected_emission = st.sidebar.selectbox("Emission Source", EMISSION_SOURCES)
 selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
@@ -162,13 +169,13 @@ else:
 render_grade_banner(overall, grade_labels[overall])
 
 # ------------------------------
-# Year Range Filter for Historical Tab
+# Date Range Slider
 # ------------------------------
-st.subheader("📅 Select Year Range")
-min_year = int(df['Year'].min())
-max_year = int(df['Year'].max())
-selected_year_range = st.slider("Year Range", min_year, max_year, (min_year, max_year), step=1)
-filtered_df_all = df[(df['Year'] >= selected_year_range[0]) & (df['Year'] <= selected_year_range[1])]
+st.subheader("📅 Select Date Range")
+min_date = df['Date'].min().date()
+max_date = df['Date'].max().date()
+selected_dates = st.slider("Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
+filtered_df_all = df[(df['Date'].dt.date >= selected_dates[0]) & (df['Date'].dt.date <= selected_dates[1])]
 
 # ------------------------------
 # Tabs: Forecast & History
@@ -189,21 +196,20 @@ with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
     for target in target_vars:
         st.markdown(f"**{target}**")
-        actual_col, pred_col = predicted_vars[target]
+        actual_col, pred_col = column_map[target]  # Use actual column letters
         fig, ax = plt.subplots(figsize=(10, 4))
 
-        if actual_col in filtered_df_all.columns:
-            ax.plot(filtered_df_all['Year'], filtered_df_all[actual_col], label='Actual', color="tab:blue")
-        if pred_col in filtered_df_all.columns:
-            ax.plot(filtered_df_all['Year'], filtered_df_all[pred_col], label='Predicted', linestyle='dotted', color="red")
+        if actual_col in df.columns:
+            ax.plot(df['Date'], df[actual_col], label='Actual', color="tab:blue")
+        if pred_col in df.columns:
+            ax.plot(df['Date'], df[pred_col], label='Predicted', linestyle='dotted', color="red")
 
         ax.set_facecolor("none")
         fig.patch.set_alpha(0.0)
-        ax.set_xlabel("Year")
+        ax.set_xlabel("Date")
         ax.set_ylabel(target)
         ax.grid(True, linestyle=':', alpha=0.6)
         legend = ax.legend()
         for text in legend.get_texts():
             text.set_color("white")
         st.pyplot(fig)
-
