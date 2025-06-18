@@ -12,7 +12,6 @@ from datetime import date
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
@@ -20,27 +19,14 @@ from sklearn.model_selection import train_test_split
 # Page config & branding
 # ------------------------------
 st.set_page_config(
-    page_title="CO2 Emission Predictor",
+    page_title="CO2 Emission Forecasting App",
     page_icon="🌿",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
 # ------------------------------
-# Custom Styles and Title
+# Header, Intro, Branding
 # ------------------------------
-st.markdown("""
-<style>
-    .main {
-        background-color: #f5f7fa;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    h1, h2, h3 {
-        color: #204051;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Green_leaf_icon.svg/1024px-Green_leaf_icon.svg.png", width=80)
 st.title("🌍 Carbon Emission Forecasting App")
 st.caption("Built with 💚 using Streamlit + Random Forest")
@@ -59,11 +45,11 @@ This application enables organizations to forecast CO₂ emissions based on supp
 # Load and preprocess data
 # ------------------------------
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
-
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
+# Define constants
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
 target_vars = [
@@ -80,90 +66,99 @@ MATERIAL_TYPES = ['Aluminum', 'Plastic', 'Steel']
 SUPPLY_CHAIN_ACTIVITIES = ['Inbound', 'Internal', 'Outbound']
 
 # ------------------------------
-# Sidebar Inputs
+# Sidebar Inputs (Filters + Prediction Date)
 # ------------------------------
 st.sidebar.header("📥 Forecast Parameters")
-target_choice = st.sidebar.selectbox("Target Variable", target_vars)
 selected_facility = st.sidebar.selectbox("Facility Type", FACILITY_TYPES)
 selected_emission = st.sidebar.selectbox("Emission Source", EMISSION_SOURCES)
 selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
 selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
 selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
 
-# Full date range from 1997 to 2050
-selected_date = st.sidebar.date_input("Prediction Date", value=date(2027, 1, 1), min_value=date(1997, 1, 1), max_value=date(2050, 12, 31))
+selected_pred_date = st.sidebar.date_input("Prediction Date", value=date(2027, 1, 1), min_value=date(1997, 1, 1), max_value=date(2050, 12, 31))
 
 # ------------------------------
-# Train Random Forest Model
+# Tab Layout: [Prediction Tab, Graphs Tab]
 # ------------------------------
-X = pd.get_dummies(df[categorical_features + numeric_features])
-y = df[target_choice]
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-model = RandomForestRegressor(n_estimators=200, random_state=42)
-model.fit(X_train, y_train)
+tab1, tab2 = st.tabs(["🔮 Emission Forecast", "📊 Historical Emission Trends"])
 
 # ------------------------------
-# Prediction
+# Prediction Tab Content
 # ------------------------------
-st.subheader("🔮 CO2 Emission Forecast")
+with tab1:
+    st.subheader("🔮 CO2 Prediction for Selected Inputs")
 
-input_data = {
-    'Facility Type_' + selected_facility: 1,
-    'Emission Source_' + selected_emission: 1,
-    'Transport Mode_' + selected_transport: 1,
-    'Material Type_' + selected_material: 1,
-    'Supply Chain Activity_' + selected_activity: 1,
-    'Year': selected_date.year,
-    'Month': selected_date.month
-}
+    # Train model
+    X = pd.get_dummies(df[categorical_features + numeric_features])
+    prediction_results = {}
 
-full_input = pd.DataFrame([input_data])
-for col in X.columns:
-    if col not in full_input.columns:
-        full_input[col] = 0
-full_input = full_input[X.columns]
+    for target in target_vars:
+        y = df[target]
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        model = RandomForestRegressor(n_estimators=200, random_state=42)
+        model.fit(X_train, y_train)
 
-pred_value = model.predict(full_input)[0]
-predictions = [tree.predict(full_input)[0] for tree in model.estimators_]
-conf_int = np.percentile(predictions, [2.5, 97.5])
+        # Prepare input
+        input_data = {
+            'Facility Type_' + selected_facility: 1,
+            'Emission Source_' + selected_emission: 1,
+            'Transport Mode_' + selected_transport: 1,
+            'Material Type_' + selected_material: 1,
+            'Supply Chain Activity_' + selected_activity: 1,
+            'Year': selected_pred_date.year,
+            'Month': selected_pred_date.month
+        }
 
-st.metric(label=f"Predicted {target_choice}", value=f"{pred_value:,.2f}")
-st.info(f"95% Prediction Interval: [{conf_int[0]:,.2f}, {conf_int[1]:,.2f}]")
+        full_input = pd.DataFrame([input_data])
+        for col in X.columns:
+            if col not in full_input.columns:
+                full_input[col] = 0
+        full_input = full_input[X.columns]
 
-# ------------------------------
-# 📉 Historical Chart (1997–2024)
-# ------------------------------
-st.subheader("📉 Historical Emissions (1997–2024)")
+        pred = model.predict(full_input)[0]
+        predictions = [tree.predict(full_input)[0] for tree in model.estimators_]
+        conf_int = np.percentile(predictions, [2.5, 97.5])
 
-historical_df = df[
-    (df['Facility Type'] == selected_facility) &
-    (df['Emission Source'] == selected_emission) &
-    (df['Transport Mode'] == selected_transport) &
-    (df['Material Type'] == selected_material) &
-    (df['Supply Chain Activity'] == selected_activity) &
-    (df['Date'] < pd.to_datetime('2025-01-01'))
-][['Date', target_choice]].dropna().sort_values('Date')
+        prediction_results[target] = {
+            'value': pred,
+            'interval': conf_int
+        }
 
-if not historical_df.empty:
-    fig1, ax1 = plt.subplots(figsize=(10, 4))
-    ax1.plot(historical_df['Date'], historical_df[target_choice], marker='o', linestyle='-')
-    ax1.set_xlabel("Date")
-    ax1.set_ylabel(target_choice)
-    ax1.set_title("Historical CO2 Emissions")
-    ax1.grid(True)
-    st.pyplot(fig1)
-else:
-    st.warning("No historical data found for selected filters.")
+    for target, result in prediction_results.items():
+        st.metric(label=f"{target}", value=f"{result['value']:,.2f}")
+        st.info(f"95% Prediction Interval: [{result['interval'][0]:,.2f}, {result['interval'][1]:,.2f}]")
 
 # ------------------------------
-# 📈 Future Prediction (Single Point)
+# Historical Graphs Tab Content
 # ------------------------------
-st.subheader("📈 Forecasted Emission (Selected Future Date)")
+with tab2:
+    st.subheader("📊 Emission Trends Over Time")
 
-future_df = pd.DataFrame({
-    'Date': [selected_date],
-    'Predicted CO2': [pred_value]
-}).set_index('Date')
+    # Date range for historical charts
+    min_date = df['Date'].min().date()
+    max_date = df['Date'].max().date()
+    date_range = st.slider(
+        "Select Date Range for Trend Analysis",
+        min_value=min_date,
+        max_value=max_date,
+        value=(min_date, max_date)
+    )
 
-st.line_chart(future_df)
+    filtered_df = df[
+        (df['Facility Type'] == selected_facility) &
+        (df['Emission Source'] == selected_emission) &
+        (df['Transport Mode'] == selected_transport) &
+        (df['Material Type'] == selected_material) &
+        (df['Supply Chain Activity'] == selected_activity) &
+        (df['Date'] >= pd.to_datetime(date_range[0])) &
+        (df['Date'] <= pd.to_datetime(date_range[1]))
+    ]
+
+    if not filtered_df.empty:
+        for target in target_vars:
+            st.subheader(f"📈 {target}")
+            chart_df = filtered_df[['Date', target]].dropna().sort_values('Date')
+            st.line_chart(chart_df.rename(columns={target: "Value"}).set_index('Date'))
+    else:
+        st.warning("No data found for the selected filters and date range.")
+
