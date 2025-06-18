@@ -67,7 +67,7 @@ selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
 selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
 today = date.today()
 selected_pred_date = st.sidebar.date_input(
-    "Prediction Date (within 1 year)",
+    "Date of Prediction",
     value=today + timedelta(days=30),
     min_value=today,
     max_value=today + timedelta(days=365)
