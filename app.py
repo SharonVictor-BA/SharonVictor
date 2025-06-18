@@ -6,14 +6,6 @@ import numpy as np
 import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 
-# Try Plotly, fallback to Matplotlib
-try:
-    import plotly.graph_objects as go
-    PLOTLY_AVAILABLE = True
-except ImportError:
-    import matplotlib.pyplot as plt
-    PLOTLY_AVAILABLE = False
-
 # ------------------------------
 # Page Configuration
 # ------------------------------
@@ -33,22 +25,6 @@ def render_grade_banner(grade_letter, grade_label):
     """, unsafe_allow_html=True)
 
 # ------------------------------
-# App Header
-# ------------------------------
-st.image("https://geographical.co.uk/wp-content/uploads/carbon-dioxide-emissions-title.jpg", width=80)
-st.title("🌍 CO2 Emission Forecasting App")
-st.caption("Built for Industrial Auditing Purposes")
-
-st.markdown("""
-This application enables organizations to forecast CO₂ emissions based on operational and supply chain inputs.
-
-**Business Value:**
-- Track CO₂ footprint across supply chain
-- Compare forecast vs historical emissions
-- Make data-driven ESG decisions
-""")
-
-# ------------------------------
 # Load Data
 # ------------------------------
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
@@ -63,11 +39,13 @@ target_vars = [
     'CO2 Emissions After Initiatives (kg)',
     'CO2 Emissions per km/mile (kg/km)'
 ]
+
 predicted_vars = {
     'Total CO2 Emissions from Facility (kg)': ('Actual CO2 Emissions from Facility (kg)', 'Predicted CO2 Emissions from Facility (kg)'),
     'CO2 Emissions After Initiatives (kg)': ('Actual CO2 Emissions After Initiatives (kg)', 'Predicted CO2 Emissions After Initiatives (kg)'),
     'CO2 Emissions per km/mile (kg/km)': ('Actual CO2 Emissions per km/mile (kg/km)', 'Predicted CO2 Emissions per km/mile (kg/km)')
 }
+
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year']
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
@@ -159,7 +137,7 @@ else:
 render_grade_banner(overall, grade_labels[overall])
 
 # ------------------------------
-# Tabs: Forecast & History
+# Tabs
 # ------------------------------
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
@@ -176,10 +154,11 @@ with tab1:
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
 
+    # Date range slider (limited to this tab)
     min_date = df['Date'].min().to_pydatetime()
     max_date = df['Date'].max().to_pydatetime()
     selected_range = st.slider("Select Date Range", min_value=min_date, max_value=max_date,
-                                value=(min_date, max_date), format="%Y-%m-%d")
+                                value=(min_date, max_date), format="YYYY-MM-DD")
 
     df_filtered = df[(df['Date'] >= selected_range[0]) & (df['Date'] <= selected_range[1])]
 
@@ -187,22 +166,32 @@ with tab2:
         st.markdown(f"**{target}**")
         actual_col, pred_col = predicted_vars[target]
 
+        if actual_col not in df_filtered.columns or pred_col not in df_filtered.columns:
+            st.warning(f"Missing data: {actual_col} or {pred_col}")
+            continue
+
+        # Coerce to numeric to avoid plotting issues
+        df_filtered[actual_col] = pd.to_numeric(df_filtered[actual_col], errors='coerce')
+        df_filtered[pred_col] = pd.to_numeric(df_filtered[pred_col], errors='coerce')
+
         fig = go.Figure()
-        if actual_col in df_filtered.columns:
-            fig.add_trace(go.Scatter(x=df_filtered['Date'], y=df_filtered[actual_col],
-                                     mode='lines+markers', name='Actual', line=dict(color='blue')))
-        if pred_col in df_filtered.columns:
-            fig.add_trace(go.Scatter(x=df_filtered['Date'], y=df_filtered[pred_col],
-                                     mode='lines+markers', name='Predicted', line=dict(color='red', dash='dot')))
+        fig.add_trace(go.Scatter(
+            x=df_filtered['Date'], y=df_filtered[actual_col],
+            mode='lines+markers', name='Actual', line=dict(color='blue')
+        ))
+        fig.add_trace(go.Scatter(
+            x=df_filtered['Date'], y=df_filtered[pred_col],
+            mode='lines+markers', name='Predicted', line=dict(color='red', dash='dot')
+        ))
 
         fig.update_layout(
-            xaxis_title='Date',
-            yaxis_title='Emissions (kg or kg/km)',
+            xaxis_title="Date",
+            yaxis_title=target,
+            hovermode="x unified",
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
-            legend=dict(font=dict(color='white')),
             font=dict(color='white'),
-            hovermode='x unified'
+            legend=dict(font=dict(color='white'))
         )
 
         st.plotly_chart(fig, use_container_width=True)
