@@ -15,6 +15,14 @@ import numpy as np
 import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 
+# Try Plotly, fallback to Matplotlib
+try:
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    import matplotlib.pyplot as plt
+    PLOTLY_AVAILABLE = False
+
 # ------------------------------
 # Page Configuration
 # ------------------------------
