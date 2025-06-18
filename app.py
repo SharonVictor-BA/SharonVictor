@@ -35,10 +35,10 @@ st.markdown("""
 This application enables organizations to forecast CO₂ emissions based on supply chain and operational parameters.
 
 **Benefits & Business Value:**
-- ✅ Identify emission hotspots across operations
-- ✅ Make data-driven sustainability decisions
-- ✅ Monitor progress toward ESG goals
-- ✅ Visualize emission trends over time
+- ✅ Identify emission hotspots across operations  
+- ✅ Make data-driven sustainability decisions  
+- ✅ Monitor progress toward ESG goals  
+- ✅ Visualize emission trends over time  
 """)
 
 # ------------------------------
@@ -49,7 +49,7 @@ df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
-# Define constants
+# Constants
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
 target_vars = [
@@ -58,7 +58,6 @@ target_vars = [
     'CO2 Emissions per km/mile (kg/km)'
 ]
 
-# Dropdown values
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
@@ -66,7 +65,7 @@ MATERIAL_TYPES = ['Aluminum', 'Plastic', 'Steel']
 SUPPLY_CHAIN_ACTIVITIES = ['Inbound', 'Internal', 'Outbound']
 
 # ------------------------------
-# Sidebar Inputs (Filters + Prediction Date)
+# Sidebar Filters & Inputs
 # ------------------------------
 st.sidebar.header("📥 Forecast Parameters")
 selected_facility = st.sidebar.selectbox("Facility Type", FACILITY_TYPES)
@@ -75,20 +74,24 @@ selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
 selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
 selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
 
-selected_pred_date = st.sidebar.date_input("Prediction Date", value=date(2027, 1, 1), min_value=date(1997, 1, 1), max_value=date(2050, 12, 31))
+selected_pred_date = st.sidebar.date_input(
+    "Prediction Date", 
+    value=date(2027, 1, 1), 
+    min_value=date(1997, 1, 1), 
+    max_value=date(2050, 12, 31)
+)
 
 # ------------------------------
-# Tab Layout: [Prediction Tab, Graphs Tab]
+# Layout: Prediction and Graphs Tabs
 # ------------------------------
 tab1, tab2 = st.tabs(["🔮 Emission Forecast", "📊 Historical Emission Trends"])
 
 # ------------------------------
-# Prediction Tab Content
+# Tab 1 – Prediction
 # ------------------------------
 with tab1:
     st.subheader("🔮 CO2 Prediction for Selected Inputs")
 
-    # Train model
     X = pd.get_dummies(df[categorical_features + numeric_features])
     prediction_results = {}
 
@@ -98,7 +101,6 @@ with tab1:
         model = RandomForestRegressor(n_estimators=200, random_state=42)
         model.fit(X_train, y_train)
 
-        # Prepare input
         input_data = {
             'Facility Type_' + selected_facility: 1,
             'Emission Source_' + selected_emission: 1,
@@ -129,16 +131,16 @@ with tab1:
         st.info(f"95% Prediction Interval: [{result['interval'][0]:,.2f}, {result['interval'][1]:,.2f}]")
 
 # ------------------------------
-# Historical Graphs Tab Content
+# Tab 2 – Historical Graphs for All Targets
 # ------------------------------
 with tab2:
-    st.subheader("📊 Emission Trends Over Time")
+    st.subheader("📊 Historical CO2 Emission Trends")
 
-    # Date range for historical charts
     min_date = df['Date'].min().date()
     max_date = df['Date'].max().date()
+
     date_range = st.slider(
-        "Select Date Range for Trend Analysis",
+        "Select Date Range",
         min_value=min_date,
         max_value=max_date,
         value=(min_date, max_date)
