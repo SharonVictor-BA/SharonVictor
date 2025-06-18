@@ -34,7 +34,7 @@ def render_grade_banner(grade_letter, grade_label):
         align-items: center;
         box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     ">
-        <h3 style="color: white; margin: 0;">🌍 Overall Carbon Emission Grade</h3>
+        <h3 style="color: white; margin: 0;">Overall Carbon Emission Grade</h3>
         <h4 style="color: white; margin: 0; font-weight: 600;">{grade_text}</h4>
     </div>
     """, unsafe_allow_html=True)
