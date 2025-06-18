@@ -60,9 +60,8 @@ This application enables organizations to forecast CO₂ emissions based on oper
 # Load Data
 # ------------------------------
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
-df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
+df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y', errors='coerce')
 df['Year'] = df['Date'].dt.year
-df['Month'] = df['Date'].dt.month
 
 # ------------------------------
 # Constants
@@ -78,7 +77,7 @@ predicted_vars = {
     'CO2 Emissions per km/mile (kg/km)': ('AJ', 'AK')
 }
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
-numeric_features = ['Year', 'Month']
+numeric_features = ['Year']
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
@@ -121,8 +120,7 @@ for target in target_vars:
         'Transport Mode_' + selected_transport: 1,
         'Material Type_' + selected_material: 1,
         'Supply Chain Activity_' + selected_activity: 1,
-        'Year': selected_pred_date.year,
-        'Month': selected_pred_date.month
+        'Year': selected_pred_date.year
     }
 
     input_df = pd.DataFrame([input_data])
@@ -186,11 +184,10 @@ with tab1:
 with tab2:
     st.subheader("📊 Historical CO₂ Emissions Comparison")
 
-    # Date slider here and not outside
+    # Date Range Filter for Tab 2
     min_date = df['Date'].min().date()
     max_date = df['Date'].max().date()
-    selected_dates = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date), format="%Y-%m-%d")
-
+    selected_dates = st.slider("Select Date Range", min_value=min_date, max_value=max_date, value=(min_date, max_date))
     chart_df = df[(df['Date'].dt.date >= selected_dates[0]) & (df['Date'].dt.date <= selected_dates[1])]
 
     for target in target_vars:
@@ -218,6 +215,7 @@ with tab2:
             st.plotly_chart(fig, use_container_width=True)
 
         else:
+            import matplotlib.pyplot as plt
             fig, ax = plt.subplots(figsize=(10, 4))
             if actual_col in chart_df.columns:
                 ax.plot(chart_df['Date'], chart_df[actual_col], label='Actual', color='blue', marker='o')
@@ -229,4 +227,3 @@ with tab2:
             ax.legend()
             ax.grid(True, linestyle='--', alpha=0.6)
             st.pyplot(fig)
-
