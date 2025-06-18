@@ -23,9 +23,9 @@ st.set_page_config(page_title="CO2 Emission Forecasting App", page_icon="🌿", 
 # ------------------------------
 # App Header
 # ------------------------------
-st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Green_leaf_icon.svg/1024px-Green_leaf_icon.svg.png", width=80)
+st.image("https://geographical.co.uk/wp-content/uploads/carbon-dioxide-emissions-title.jpg", width=80)
 st.title("🌍 CO2 Emission Forecasting App")
-st.caption("Built with 💚 using Streamlit + Random Forest")
+st.caption("Built for Industrial Auditing Purposes")
 
 st.markdown("""
 This application enables organizations to forecast CO₂ emissions based on operational and supply chain inputs.
