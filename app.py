@@ -15,14 +15,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 
-# ------------------------------
-# Page Configuration
-# ------------------------------
+# Page Setup
 st.set_page_config(page_title="CO2 Emission Forecasting App", page_icon="🌿", layout="wide")
 
-# ------------------------------
-# Banner for Overall Grade
-# ------------------------------
+# Grade banner
 def render_grade_banner(grade_letter, grade_label):
     grade_text = f"{grade_label} ({grade_letter})"
     st.markdown(f"""
@@ -33,9 +29,7 @@ def render_grade_banner(grade_letter, grade_label):
     </div>
     """, unsafe_allow_html=True)
 
-# ------------------------------
-# App Header
-# ------------------------------
+# Header
 st.image("https://geographical.co.uk/wp-content/uploads/carbon-dioxide-emissions-title.jpg", width=80)
 st.title("🌍 CO2 Emission Forecasting App")
 st.caption("Built for Industrial Auditing Purposes")
@@ -49,33 +43,34 @@ This application enables organizations to forecast CO₂ emissions based on oper
 - Make data-driven ESG decisions
 """)
 
-# ------------------------------
 # Load Data
-# ------------------------------
 df = pd.read_csv("CO2_Emission_Prediction_Dataset.csv")
 df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
-# ------------------------------
 # Constants
-# ------------------------------
 target_vars = [
     'Total CO2 Emissions from Facility (kg)',
     'CO2 Emissions After Initiatives (kg)',
     'CO2 Emissions per km/mile (kg/km)'
 ]
+predicted_vars = {
+    'Total CO2 Emissions from Facility (kg)': 'Predicted CO2 Emissions from Facility (kg)',
+    'CO2 Emissions After Initiatives (kg)': 'Predicted CO2 Emissions After Initiatives (kg)',
+    'CO2 Emissions per km/mile (kg/km)': 'Predicted CO2 Emissions per km/mile (kg/km)'
+}
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
-FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
-EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
-TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
-MATERIAL_TYPES = ['Aluminum', 'Plastic', 'Steel']
-SUPPLY_CHAIN_ACTIVITIES = ['Inbound', 'Internal', 'Outbound']
 
-# ------------------------------
-# Sidebar Inputs
-# ------------------------------
+# Dropdown options
+FACILITY_TYPES = df['Facility Type'].unique().tolist()
+EMISSION_SOURCES = df['Emission Source'].unique().tolist()
+TRANSPORT_MODES = df['Transport Mode'].unique().tolist()
+MATERIAL_TYPES = df['Material Type'].unique().tolist()
+SUPPLY_CHAIN_ACTIVITIES = df['Supply Chain Activity'].unique().tolist()
+
+# Sidebar inputs
 st.sidebar.header("📥 Forecast Parameters")
 selected_facility = st.sidebar.selectbox("Facility Type", FACILITY_TYPES)
 selected_emission = st.sidebar.selectbox("Emission Source", EMISSION_SOURCES)
@@ -86,9 +81,7 @@ today = date.today()
 selected_pred_date = st.sidebar.date_input("Date of Prediction", value=today + timedelta(days=30),
                                            min_value=today, max_value=today + timedelta(days=365))
 
-# ------------------------------
-# Prediction & Grading Logic
-# ------------------------------
+# Prediction Logic
 grades = []
 scores = []
 grade_map = {'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1}
@@ -124,6 +117,7 @@ for target in target_vars:
     min_val, max_val = df[target].min(), df[target].max()
     min_max_dict[target] = (min_val, max_val)
 
+    # Grade logic
     percentile = (pred - min_val) / (max_val - min_val) if max_val > min_val else 0
     if percentile <= 0.25:
         grade = 'A'
@@ -139,9 +133,7 @@ for target in target_vars:
     grades.append(grade)
     scores.append(grade_map[grade])
 
-# ------------------------------
-# Overall Grade Calculation
-# ------------------------------
+# Overall Grade
 avg_score = np.mean(scores)
 if avg_score >= 4.5:
     overall = 'A'
@@ -156,12 +148,10 @@ else:
 
 render_grade_banner(overall, grade_labels[overall])
 
-# ------------------------------
-# Tabs: Forecast & History
-# ------------------------------
+# Tabs
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
 
-# --- Tab 1 ---
+# Tab 1: KPIs
 with tab1:
     for target in target_vars:
         st.markdown(f"### {target}")
@@ -170,7 +160,7 @@ with tab1:
         st.warning(f"Max: {min_max_dict[target][1]:,.2f}")
         st.markdown("---")
 
-# --- Tab 2 ---
+# Tab 2: Chart
 with tab2:
     st.subheader("Historical CO₂ Emissions Comparison")
     filtered_df = df[
@@ -185,14 +175,16 @@ with tab2:
         for target in target_vars:
             st.markdown(f"**{target}**")
             fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(filtered_df['Date'], filtered_df[target], label='Historical')
-            ax.axvline(pd.to_datetime(selected_pred_date), color='orange', linestyle='--', label='Prediction Date')
+            ax.plot(filtered_df['Date'], filtered_df[target], label="Historical", color="tab:blue")
+            ax.plot(filtered_df['Date'], filtered_df[predicted_vars[target]], label="Predicted", linestyle='dotted', color="red")
             ax.set_facecolor("none")
             fig.patch.set_alpha(0.0)
-            ax.set_xlabel("Date")
-            ax.set_ylabel(target)
+            ax.set_xlabel("Date", color="white")
+            ax.set_ylabel(target, color="white")
             ax.grid(True, linestyle=':', alpha=0.6)
-            ax.legend()
+            legend = ax.legend()
+            for text in legend.get_texts():
+                text.set_color("white")
             st.pyplot(fig)
     else:
         st.warning("No matching historical data found for selected inputs.")
