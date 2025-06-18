@@ -8,7 +8,6 @@ Original file is located at
 """
 
 # -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 import streamlit as st
 from datetime import date, timedelta
 import pandas as pd
@@ -163,6 +162,15 @@ else:
 render_grade_banner(overall, grade_labels[overall])
 
 # ------------------------------
+# Year Range Filter for Historical Tab
+# ------------------------------
+st.subheader("📅 Select Year Range")
+min_year = int(df['Year'].min())
+max_year = int(df['Year'].max())
+selected_year_range = st.slider("Year Range", min_year, max_year, (min_year, max_year), step=1)
+filtered_df_all = df[(df['Year'] >= selected_year_range[0]) & (df['Year'] <= selected_year_range[1])]
+
+# ------------------------------
 # Tabs: Forecast & History
 # ------------------------------
 tab1, tab2 = st.tabs(["📈 Forecast & KPIs", "📊 Historical Comparison"])
@@ -178,34 +186,24 @@ with tab1:
 
 # --- Tab 2 ---
 with tab2:
-    st.subheader("Historical CO₂ Emissions Comparison")
-    filtered_df = df[
-        (df['Facility Type'] == selected_facility) &
-        (df['Emission Source'] == selected_emission) &
-        (df['Transport Mode'] == selected_transport) &
-        (df['Material Type'] == selected_material) &
-        (df['Supply Chain Activity'] == selected_activity)
-    ].sort_values('Date')
+    st.subheader("📊 Historical CO₂ Emissions Comparison")
+    for target in target_vars:
+        st.markdown(f"**{target}**")
+        actual_col, pred_col = predicted_vars[target]
+        fig, ax = plt.subplots(figsize=(10, 4))
 
-    if not filtered_df.empty:
-        for target in target_vars:
-            st.markdown(f"**{target}**")
-            actual_col, pred_col = predicted_vars[target]
-            fig, ax = plt.subplots(figsize=(10, 4))
+        if actual_col in filtered_df_all.columns:
+            ax.plot(filtered_df_all['Year'], filtered_df_all[actual_col], label='Actual', color="tab:blue")
+        if pred_col in filtered_df_all.columns:
+            ax.plot(filtered_df_all['Year'], filtered_df_all[pred_col], label='Predicted', linestyle='dotted', color="red")
 
-            if actual_col in filtered_df.columns:
-                ax.plot(filtered_df['Date'], filtered_df[actual_col], label='Actual', color="tab:blue")
-            if pred_col in filtered_df.columns:
-                ax.plot(filtered_df['Date'], filtered_df[pred_col], label='Predicted', linestyle='dotted', color="red")
+        ax.set_facecolor("none")
+        fig.patch.set_alpha(0.0)
+        ax.set_xlabel("Year")
+        ax.set_ylabel(target)
+        ax.grid(True, linestyle=':', alpha=0.6)
+        legend = ax.legend()
+        for text in legend.get_texts():
+            text.set_color("white")
+        st.pyplot(fig)
 
-            ax.set_facecolor("none")
-            fig.patch.set_alpha(0.0)
-            ax.set_xlabel("Date")
-            ax.set_ylabel(target)
-            ax.grid(True, linestyle=':', alpha=0.6)
-            legend = ax.legend()
-            for text in legend.get_texts():
-                text.set_color("white")
-            st.pyplot(fig)
-    else:
-        st.warning("No matching historical data found for selected inputs.")
