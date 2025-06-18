@@ -7,25 +7,31 @@ Original file is located at
     https://colab.research.google.com/drive/18AWPCMqJpvj-38SHmHtKDX6Mh4_ZQust
 """
 
-import streamlit as st
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from datetime import date
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
+# Add to your existing imports
+from datetime import datetime
 
-# ------------------------------
-# Page config & branding
-# ------------------------------
+# Set page config
 st.set_page_config(
-    page_title="CO2 Emission Predictor",
-    page_icon="🌿",
+    page_title="CO2 Emission Forecasting App",
+    page_icon="🌍",
     layout="wide"
 )
 
-st.markdown("<h1 style='color:#204051;'>🌍 CO2 Emission Forecasting App</h1>", unsafe_allow_html=True)
-st.caption("Forecast total emissions based on facility and supply chain parameters.")
+# ------------------------------
+# App Header & Business Value
+# ------------------------------
+st.markdown("""
+## 🌿 CO2 Emission Forecasting App
+
+This application enables organizations to forecast carbon dioxide (CO₂) emissions based on supply chain and operational variables.  
+**Benefits & Business Value:**
+- ✅ Make data-driven sustainability decisions  
+- ✅ Identify emission hotspots across transport, materials, and facility types  
+- ✅ Support compliance with ESG and regulatory goals  
+- ✅ Visualize historical and predicted CO₂ trends to track progress over time  
+""")
+
+st.markdown("---")
 
 # ------------------------------
 # Load and preprocess data
@@ -35,6 +41,7 @@ df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y')
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 
+# Categorical and numeric features
 categorical_features = ['Facility Type', 'Emission Source', 'Transport Mode', 'Material Type', 'Supply Chain Activity']
 numeric_features = ['Year', 'Month']
 target_vars = [
@@ -43,7 +50,7 @@ target_vars = [
     'CO2 Emissions per km/mile (kg/km)'
 ]
 
-# Fixed options
+# Fixed dropdown values
 FACILITY_TYPES = ['Manufacturing', 'Office', 'Warehouse']
 EMISSION_SOURCES = ['Electricity', 'Fuel', 'Transport', 'Waste']
 TRANSPORT_MODES = ['Air', 'Rail', 'Ship', 'Truck']
@@ -53,20 +60,25 @@ SUPPLY_CHAIN_ACTIVITIES = ['Inbound', 'Internal', 'Outbound']
 # ------------------------------
 # Sidebar Inputs
 # ------------------------------
-st.sidebar.header("Prediction Input")
+st.sidebar.header("📥 Forecast Parameters")
 target_choice = st.sidebar.selectbox("Target Variable", target_vars)
 selected_facility = st.sidebar.selectbox("Facility Type", FACILITY_TYPES)
 selected_emission = st.sidebar.selectbox("Emission Source", EMISSION_SOURCES)
 selected_transport = st.sidebar.selectbox("Transport Mode", TRANSPORT_MODES)
 selected_material = st.sidebar.selectbox("Material Type", MATERIAL_TYPES)
 selected_activity = st.sidebar.selectbox("Supply Chain Activity", SUPPLY_CHAIN_ACTIVITIES)
-selected_date = st.sidebar.date_input("Prediction Date", value=date(2027, 1, 1), min_value=date.today())
+
+# Allow selection from 01-Jan-1997 to 31-Dec-2050
+selected_date = st.sidebar.date_input("Prediction Date", value=date(2027, 1, 1), min_value=date(1997, 1, 1), max_value=date(2050, 12, 31))
 
 # ------------------------------
-# Train Model
+# Model Training
 # ------------------------------
 X = pd.get_dummies(df[categorical_features + numeric_features])
 y = df[target_choice]
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 model = RandomForestRegressor(n_estimators=200, random_state=42)
@@ -75,7 +87,7 @@ model.fit(X_train, y_train)
 # ------------------------------
 # Prediction
 # ------------------------------
-st.subheader("🔍 Prediction Result")
+st.subheader("🔮 Predicted Emission Output")
 
 input_data = {
     'Facility Type_' + selected_facility: 1,
@@ -97,31 +109,36 @@ pred_value = model.predict(full_input)[0]
 predictions = [tree.predict(full_input)[0] for tree in model.estimators_]
 conf_int = np.percentile(predictions, [2.5, 97.5])
 
-st.success(f"Predicted {target_choice}: {pred_value:,.2f}")
-st.info(f"95% Prediction Interval: [{conf_int[0]:,.2f}, {conf_int[1]:,.2f}]")
+st.success(f"Predicted {target_choice}: **{pred_value:,.2f}**")
+st.info(f"95% Prediction Interval: **[{conf_int[0]:,.2f}, {conf_int[1]:,.2f}]**")
 
 # ------------------------------
-# Historical Trend
+# Visual 1: Historical Trends (1997–2024)
 # ------------------------------
-st.subheader("📈 Historical Trend – Same Input Filters")
+st.subheader("📉 Historical CO2 Emission Trend (1997–2024)")
 
-mask = (
+historical_df = df[
     (df['Facility Type'] == selected_facility) &
     (df['Emission Source'] == selected_emission) &
     (df['Transport Mode'] == selected_transport) &
     (df['Material Type'] == selected_material) &
-    (df['Supply Chain Activity'] == selected_activity)
-)
+    (df['Supply Chain Activity'] == selected_activity) &
+    (df['Date'] < pd.to_datetime('2025-01-01'))
+][['Date', target_choice]].dropna().sort_values('Date')
 
-hist_data = df.loc[mask, ['Date', target_choice]].dropna().sort_values('Date')
-
-if not hist_data.empty:
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(hist_data['Date'], hist_data[target_choice], color='green', marker='o', linestyle='-')
-    ax.set_xlabel("Date")
-    ax.set_ylabel(target_choice)
-    ax.set_title("Historical Emissions Trend")
-    ax.grid(True)
-    st.pyplot(fig)
+if not historical_df.empty:
+    st.line_chart(historical_df.rename(columns={target_choice: "CO2 Emissions"}).set_index('Date'))
 else:
-    st.warning("No historical data found for the selected filters.")
+    st.warning("No historical data found for selected filters.")
+
+# ------------------------------
+# Visual 2: Future Forecast Point
+# ------------------------------
+st.subheader("📈 Future Emission Forecast")
+
+future_df = pd.DataFrame({
+    'Date': [selected_date],
+    'Predicted CO2': [pred_value]
+}).set_index('Date')
+
+st.line_chart(future_df)
